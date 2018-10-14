@@ -12,3 +12,4 @@ kit-libs-osx
 kit-libs-linux
 
 *.sublime-workspace
+.DS_Store

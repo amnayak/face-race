@@ -28,6 +28,11 @@
                 	"name": "Regenerate assets",
                 	"working_dir": "$project_path/meshes",
                 	"cmd": "make"
+                },
+                {
+                    "name": "Make shaders",
+                    "working_dir": "$project_path/shaders",
+                    "cmd": "make"
                 }
             ]
         }

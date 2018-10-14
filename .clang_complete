@@ -1,0 +1,9 @@
+-I.
+-I/usr/local/include/sdl2
+-I/usr/local/include/glm
+-I/usr/local/include/libpng16
+-framework OpenGL
+-std=c++14
+-Wall
+-Werror
+-g
