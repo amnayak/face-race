@@ -33,6 +33,11 @@
                     "name": "Make shaders",
                     "working_dir": "$project_path/shaders",
                     "cmd": "make"
+                },
+                {
+                    "name": "Make fonts",
+                    "working_dir": "$project_path/fonts",
+                    "cmd": "make"
                 }
             ]
         }

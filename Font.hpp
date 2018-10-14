@@ -2,6 +2,7 @@
 
 #include <string>
 #include <array>
+#include <map>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -15,6 +16,7 @@
  * Much of the documentation on this page is lifted directly from the spec ^^
  */
 class Font {
+public:
 	// Name of the font
 	std::string face = "";
 	// Name of the OEM charset used (when not unicode)
@@ -71,6 +73,7 @@ class Font {
 		std::string file_location;
 		GLuint gl_texture;
 
+		page_data() : file_location(""), gl_texture(0) {}
 		page_data(std::string file_location, GLuint gl_texture) : file_location(file_location), gl_texture(gl_texture) {}
 	};
 
@@ -89,9 +92,9 @@ class Font {
 		// Height of the character image in the texture
 		unsigned short height;
 		// How much the current position should be offset when copying the image from the texture to the screen.
-		unsigned short xoffset;
+		signed short xoffset;
 		// How much the current position should be offset when copying the image from the texture to the screen.
-		unsigned short yoffset;
+		signed short yoffset;
 		// How much the current position should be advanced after drawing the character.
 		unsigned short xadvance;
 		// Page to use when rendering
@@ -104,6 +107,11 @@ class Font {
 	// Shortcut to the char data, assuming ascii ordering
 	std::array<char_data *, 256> ascii_chars;
 
+	// Key: pairs of character ids <A, B>
+	// Value: How much xadvance should be adjusted when B is rendered after A
+	typedef std::pair<unsigned short, unsigned short> id_pair;
+	std::map<id_pair, signed short> kerning;
+
 	glm::vec2 screen_dim;
 
 	GLuint vbo;
@@ -112,7 +120,7 @@ class Font {
 	// TODO: support the kerning tag which modifies the placement
 	//       of characters in certain contexts
 
-	Font(std::string src_path, glm::vec2 screen_width);
+	Font(std::string src_path, glm::vec2 screen_dim);
 	~Font();
 
 	// Renders the provided character by id, and returns how much screen
@@ -121,7 +129,7 @@ class Font {
 	// pos: position of bottom left corner
 	// size: font size (defaults to size of glyph)
 	float draw_ascii_char(unsigned short c, glm::vec2 pos, float size = 0);
-	void draw_ascii_string(char *text, glm::vec2 pos);
+	void draw_ascii_string(const char *text, glm::vec2 pos, float size = 0);
 
 private:
 	struct font_vertex {
@@ -129,6 +137,6 @@ private:
 		glm::u8vec4 color = glm::u8vec4(255, 255, 255, 255);
 		glm::vec2 texcoord;
 	};
-	std::array<font_vertex, 4> verts_buf;
+	std::array<font_vertex, 6> verts_buf;
 
 };
