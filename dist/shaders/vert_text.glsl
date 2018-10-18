@@ -4,7 +4,7 @@
 
 uniform mat4 u_projTrans;
 
-in vec4 position; // in ndc
+in vec4 position;
 in vec4 color;
 in vec2 texcoord0;
 

@@ -433,7 +433,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	GL_ERRORS();
 
-
 	//Copy scene from color buffer to screen, performing post-processing effects:
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fbs.color_tex);
@@ -449,9 +448,9 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glDisable(GL_DEPTH_TEST);
 
 	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string("Tw The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.3f), 64);
+	font_times->draw_ascii_string("Hello, world!  I am a font with kerning!", glm::vec2(0.2f, 0.8f), 64);
 	font_arial->screen_dim = drawable_size;
-	font_arial->draw_ascii_string("Tw The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
 
 	glEnable(GL_DEPTH_TEST);
 }

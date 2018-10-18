@@ -128,7 +128,7 @@ Font::Font(std::string src_path, glm::vec2 screen_dim) : screen_dim(screen_dim) 
 			GLuint tex = 0;
 			glGenTextures(1, &tex);
 			glBindTexture(GL_TEXTURE_2D, tex);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -277,7 +277,7 @@ float Font::draw_ascii_char(unsigned short c, glm::vec2 pos, float size) {
 		GL_ARRAY_BUFFER, 
 		6 * sizeof(font_vertex), 
 		verts_buf.data(), 
-		GL_DYNAMIC_DRAW);
+		GL_STREAM_DRAW);
 
 	static glm::mat4 proj = glm::ortho(0, 1, 0, 1);
 
