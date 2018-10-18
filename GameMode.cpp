@@ -13,6 +13,7 @@
 #include "load_save_png.hpp"
 #include "texture_program.hpp"
 #include "depth_program.hpp"
+#include "Font.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -22,16 +23,18 @@
 #include <cstddef>
 #include <random>
 
-
 Load< MeshBuffer > meshes(LoadTagDefault, [](){
-	return new MeshBuffer(data_path("vignette.pnct"));
+	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
 });
 
+
 Load< GLuint > meshes_for_texture_program(LoadTagDefault, [](){
+	std::cout << "Loading texture program" << std::endl;
 	return new GLuint(meshes->make_vao_for_program(texture_program->program));
 });
 
 Load< GLuint > meshes_for_depth_program(LoadTagDefault, [](){
+	std::cout << "Loading depth program" << std::endl;
 	return new GLuint(meshes->make_vao_for_program(depth_program->program));
 });
 
@@ -42,6 +45,14 @@ Load< GLuint > empty_vao(LoadTagDefault, [](){
 	glBindVertexArray(vao);
 	glBindVertexArray(0);
 	return new GLuint(vao);
+});
+
+MLoad< Font > font_arial(LoadTagDefault, [](){
+	return new Font("fonts/arial.fnt", glm::vec2(640, 480));
+});
+
+MLoad< Font > font_times(LoadTagDefault, [](){
+	return new Font("fonts/times.fnt", glm::vec2(640, 480));
 });
 
 Load< GLuint > blur_program(LoadTagDefault, [](){
@@ -216,9 +227,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 	if (!spot) throw std::runtime_error("No 'Spot' spotlight in scene.");
 
 	return ret;
+
 });
 
 GameMode::GameMode() {
+		f = new Face(); //TODO remember to destroy
 }
 
 GameMode::~GameMode() {
@@ -226,8 +239,23 @@ GameMode::~GameMode() {
 
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 	//ignore any keys that are the result of automatic key repeat:
-	if (evt.type == SDL_KEYDOWN && evt.key.repeat) {
-		return false;
+	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
+		//TODO: decrease basis weight in a better way.. [multiple shape keys]
+		if(f->weights[0] >= 0.1f){
+			f->weights[0] -= 0.1f;
+			f->weights[1] += 0.1f;
+		}
+
+		return true;
+	}
+
+	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
+		//TODO: increase basis weight in a better way.. [multiple shape keys]
+		if(f->weights[0] <= 0.9f){
+			f->weights[0] += 0.1f;
+			f->weights[1] -= 0.1f;
+		}
+		return true;
 	}
 
 	if (evt.type == SDL_MOUSEMOTION) {
@@ -279,12 +307,12 @@ struct Framebuffers {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glBindTexture(GL_TEXTURE_2D, 0);
-	
+
 			if (depth_rb == 0) glGenRenderbuffers(1, &depth_rb);
 			glBindRenderbuffer(GL_RENDERBUFFER, depth_rb);
 			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, size.x, size.y);
 			glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	
+
 			if (fb == 0) glGenFramebuffers(1, &fb);
 			glBindFramebuffer(GL_FRAMEBUFFER, fb);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_tex, 0);
@@ -317,7 +345,7 @@ struct Framebuffers {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glBindTexture(GL_TEXTURE_2D, 0);
-	
+
 			if (shadow_fb == 0) glGenFramebuffers(1, &shadow_fb);
 			glBindFramebuffer(GL_FRAMEBUFFER, shadow_fb);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, shadow_color_tex, 0);
@@ -362,7 +390,7 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	camera->aspect = drawable_size.x / float(drawable_size.y);
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//set up basic OpenGL state:
@@ -422,7 +450,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	GL_ERRORS();
 
-
 	//Copy scene from color buffer to screen, performing post-processing effects:
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fbs.color_tex);
@@ -434,4 +461,15 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glUseProgram(0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glDisable(GL_DEPTH_TEST);
+
+	font_times->screen_dim = drawable_size;
+	font_times->draw_ascii_string("Hello, world!  I am a font with kerning!", glm::vec2(0.2f, 0.8f), 64);
+	font_arial->screen_dim = drawable_size;
+	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+
+	assert (f != NULL);
+	//f->draw_face(, camera) TODO actually draw
+	glEnable(GL_DEPTH_TEST);
 }

@@ -11,7 +11,7 @@
 #include <set>
 #include <cstddef>
 
-MeshBuffer::MeshBuffer(std::string const &filename) {
+MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	glGenBuffers(1, &vbo);
 
 	std::ifstream file(filename, std::ios::binary);
@@ -29,7 +29,7 @@ MeshBuffer::MeshBuffer(std::string const &filename) {
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		total = GLuint(data.size()); //store total for later checks on index

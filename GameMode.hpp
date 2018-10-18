@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Mode.hpp"
+#include "Face.hpp"
 
 #include "MeshBuffer.hpp"
 #include "GL.hpp"
@@ -30,4 +31,6 @@ struct GameMode : public Mode {
 
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
+
+	Face *f;
 };

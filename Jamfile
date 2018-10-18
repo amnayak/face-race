@@ -78,8 +78,10 @@ CLIENT_NAMES =
 	MenuMode
 	Load
 	MeshBuffer
+  Face
 	draw_text
 	Sound
+	Font
 	;
 
 if $(OS) = NT {

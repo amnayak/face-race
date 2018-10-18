@@ -60,3 +60,33 @@ GLuint compile_program(
 
 	return program;
 }
+
+GLuint compile_program_file(
+	std::string const &vertex_shader_source,
+	std::string const &fragment_shader_source
+	) {
+
+	auto read_file = [](std::string const &src) {
+		// http://insanecoding.blogspot.com/2011/11/how-to-read-in-file-in-c.html
+		std::ifstream in(src, std::ios::in | std::ios::binary);
+		if (in)
+		{
+			std::string contents;
+			in.seekg(0, std::ios::end);
+			contents.resize(in.tellg());
+			in.seekg(0, std::ios::beg);
+			in.read(&contents[0], contents.size());
+			in.close();
+			return contents;
+		}
+
+		std::cerr << "ERROR compiling program: Can't find file " << src << std::endl;
+		return std::string("");
+	};
+
+	
+	std::string vertex_program = read_file(vertex_shader_source);
+	std::string frag_program = read_file(fragment_shader_source);
+
+	return compile_program(vertex_program, frag_program);
+}

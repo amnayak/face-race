@@ -1,0 +1,45 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"build_systems":
+    [
+        {
+            "name": "face-race",
+            "cmd": ["jam"],
+            "working_dir": "$project_path",
+            "selector": "source.c++",
+            "shell": true,
+            "variants": [
+                {
+                    "name": "Run",
+                    "working_dir": "$project_path/dist",
+                    "cmd": ["./main"]
+                },
+            	{
+                    "name": "Clean",
+                    "working_dir": "$project_path",
+                    "cmd": ["jam clean"]
+                },
+                {
+                	"name": "Regenerate assets",
+                	"working_dir": "$project_path/meshes",
+                	"cmd": "make"
+                },
+                {
+                    "name": "Make shaders",
+                    "working_dir": "$project_path/shaders",
+                    "cmd": "make"
+                },
+                {
+                    "name": "Make fonts",
+                    "working_dir": "$project_path/fonts",
+                    "cmd": "make"
+                }
+            ]
+        }
+    ]
+}
