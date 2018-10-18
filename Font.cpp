@@ -296,14 +296,36 @@ float Font::draw_ascii_char(unsigned short c, glm::vec2 pos, float size) {
 	return (float)cur->xadvance * scale / screen_dim.x;
 }
 
-void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size) {
+void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, float width) {
 	glm::vec2 pos = og_pos;
+	float pos_in_line = 0;
 	char prev = 0;
+
+	size = size == 0 ? this->size : size;
+	float scale = size / this->size;
 
 	static bool printed = false;
 
+	// TODO: Overflow text based on word, not by char
 	for(; *text != 0; ++text) {
-		pos.x += draw_ascii_char(*text, pos, size);
+		char_data *cur = all_chars[*text];
+		float adv = 0;
+		if(cur) {
+			adv = cur->xadvance * scale / screen_dim.x;
+		}
+		if(width && pos_in_line + adv > width) {
+			pos.x = og_pos.x;
+			pos.y -= (float)render_info.line_height * scale / screen_dim.y;
+			pos_in_line = 0;
+		}
+		pos_in_line += adv;
+
+		float real_adv = draw_ascii_char(*text, pos, size);
+		pos.x += real_adv;
+		if(!cur) {
+			pos_in_line += real_adv;
+		}
+
 		if(prev)
 			pos.x += (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] / screen_dim.x;
 		if(!printed && *text != ' ' && prev)
