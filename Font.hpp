@@ -129,7 +129,8 @@ public:
 	// pos: position of bottom left corner
 	// size: font size (defaults to size of glyph)
 	float draw_ascii_char(unsigned short c, glm::vec2 pos, float size = 0);
-	void draw_ascii_string(const char *text, glm::vec2 pos, float size = 0);
+	// width: overflow past this width
+	void draw_ascii_string(const char *text, glm::vec2 pos, float size = 0, float width = 0);
 
 private:
 	struct font_vertex {
