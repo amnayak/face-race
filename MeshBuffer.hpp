@@ -31,7 +31,7 @@ struct MeshBuffer {
 
 	//construct from a file:
 	// note: will throw if file fails to read.
-	MeshBuffer(std::string const &filename);
+	MeshBuffer(std::string const &filename, GLenum draw_mode);
 
 	//look up a particular mesh in the DB:
 	// note: will throw if mesh not found.
@@ -40,7 +40,7 @@ struct MeshBuffer {
 		GLuint count = 0;
 	};
 	const Mesh &lookup(std::string const &name) const;
-	
+
 	//build a vertex array object that links this vbo to attributes to a program:
 	//  will throw if program defines attributes not contained in this buffer
 	//  and warn if this buffer contains attributes not active in the program

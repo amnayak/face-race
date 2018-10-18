@@ -23,10 +23,10 @@
 #include <cstddef>
 #include <random>
 
-
 Load< MeshBuffer > meshes(LoadTagDefault, [](){
-	return new MeshBuffer(data_path("vignette.pnct"));
+	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
 });
+
 
 Load< GLuint > meshes_for_texture_program(LoadTagDefault, [](){
 	std::cout << "Loading texture program" << std::endl;
@@ -227,9 +227,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 	if (!spot) throw std::runtime_error("No 'Spot' spotlight in scene.");
 
 	return ret;
+
 });
 
 GameMode::GameMode() {
+		f = new Face(); //TODO remember to destroy
 }
 
 GameMode::~GameMode() {
@@ -237,8 +239,23 @@ GameMode::~GameMode() {
 
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 	//ignore any keys that are the result of automatic key repeat:
-	if (evt.type == SDL_KEYDOWN && evt.key.repeat) {
-		return false;
+	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
+		//TODO: decrease basis weight in a better way.. [multiple shape keys]
+		if(f->weights[0] >= 0.1f){
+			f->weights[0] -= 0.1f;
+			f->weights[1] += 0.1f;
+		}
+
+		return true;
+	}
+
+	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
+		//TODO: increase basis weight in a better way.. [multiple shape keys]
+		if(f->weights[0] <= 0.9f){
+			f->weights[0] += 0.1f;
+			f->weights[1] -= 0.1f;
+		}
+		return true;
 	}
 
 	if (evt.type == SDL_MOUSEMOTION) {
@@ -290,12 +307,12 @@ struct Framebuffers {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glBindTexture(GL_TEXTURE_2D, 0);
-	
+
 			if (depth_rb == 0) glGenRenderbuffers(1, &depth_rb);
 			glBindRenderbuffer(GL_RENDERBUFFER, depth_rb);
 			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, size.x, size.y);
 			glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	
+
 			if (fb == 0) glGenFramebuffers(1, &fb);
 			glBindFramebuffer(GL_FRAMEBUFFER, fb);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_tex, 0);
@@ -328,7 +345,7 @@ struct Framebuffers {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glBindTexture(GL_TEXTURE_2D, 0);
-	
+
 			if (shadow_fb == 0) glGenFramebuffers(1, &shadow_fb);
 			glBindFramebuffer(GL_FRAMEBUFFER, shadow_fb);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, shadow_color_tex, 0);
@@ -452,5 +469,7 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	font_arial->screen_dim = drawable_size;
 	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
 
+	assert (f != NULL);
+	//f->draw_face(, camera) TODO actually draw
 	glEnable(GL_DEPTH_TEST);
 }
