@@ -453,6 +453,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	glDisable(GL_DEPTH_TEST);
 	assert (f != NULL);
-	f->draw_face(, camera)
+	//f->draw_face(, camera) TODO actually draw
 	glEnable(GL_DEPTH_TEST);
 }
