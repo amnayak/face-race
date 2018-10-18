@@ -10,7 +10,7 @@
 
 //------------ resources ------------
 Load< MeshBuffer > text_meshes(LoadTagInit, [](){
-	return new MeshBuffer(data_path("menu.p"));
+	return new MeshBuffer(data_path("menu.p"), GL_STATIC_DRAW);
 });
 
 //font metrics for "text_meshes":
