@@ -65,7 +65,6 @@ Face::Face() {
   bind_attribute("Position", Position);
  	bind_attribute("Normal", Normal);
  	bind_attribute("Color", Color);
- 	bind_attribute("TexCoord", TexCoord);
   glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -142,11 +141,12 @@ void Face::recalculate_mesh_data () {
       float weight_sum = 0.0f;
       for(int i = 0; i < key_frames.size(); i++){
         data_to_write[v].Position += key_frames[i].verts[i] * weights[i];
+        //if (DEBUG) printf("%s\n", glm::to_string(data[i].Position).c_str());
         weight_sum += weights[i];
       }
       assert (weight_sum == 1.0f);
       //TODO: needs a way to ensure that they sum to 1.0..
-            //some sort of normalizing fn?
+            //a normalizing fn?
     }
 
     //Upload vertex data
@@ -175,8 +175,8 @@ void Face::draw_face(Scene::Transform &t, glm::mat4 const &world_to_clip) {
     }
 
     glBindVertexArray(vao);
-	  glDrawArrays(GL_TRIANGLES, 0, cur_vao_size * 7);
-
+	  glDrawArrays(GL_TRIANGLES, 0, cur_vao_size);
+    glBindVertexArray(0);
 }
 
 void Face::draw_face(Scene::Transform &t, Scene::Camera const *camera)  {

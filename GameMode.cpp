@@ -370,8 +370,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	GL_ERRORS();
 
-
-
 	//Draw scene to off-screen framebuffer:
 	glBindFramebuffer(GL_FRAMEBUFFER, fbs.fb);
 	glViewport(0,0,drawable_size.x, drawable_size.y);
@@ -434,6 +432,13 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glActiveTexture(GL_TEXTURE0);
 
+	assert (f != NULL);
+	Scene::Transform test;
+	test.position = glm::vec3(0.f, 0.f, 3.f);
+	test.scale = glm::vec3(1.f, 1.f, 1.f);
+	f->recalculate_mesh_data();
+	f->draw_face(test, camera); //TODO actually draw
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	GL_ERRORS();
@@ -451,8 +456,8 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	glDisable(GL_DEPTH_TEST);
-	assert (f != NULL);
-	//f->draw_face(, camera) TODO actually draw
-	glEnable(GL_DEPTH_TEST);
+	//glDisable(GL_DEPTH_TEST);
+	//glEnable(GL_DEPTH_TEST);
+
+	GL_ERRORS();
 }
