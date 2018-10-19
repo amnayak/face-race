@@ -28,6 +28,7 @@
 #include <fstream>
 #include <memory>
 #include <algorithm>
+#include <sstream>
 
 int main(int argc, char **argv) {
 #ifdef _WIN32
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
 #endif
 	struct {
 		//TODO: this is where you set the title and size of your game window
-		std::string title = "TODO: Game Title";
+		std::string title = "Face Race [640x400]";
 		glm::uvec2 size = glm::uvec2(640, 400);
 	} config;
 
@@ -135,6 +136,10 @@ int main(int argc, char **argv) {
 		SDL_GL_GetDrawableSize(window, &w, &h);
 		drawable_size = glm::uvec2(w, h);
 		glViewport(0, 0, drawable_size.x, drawable_size.y);
+
+		std::basic_stringstream<char> ss;
+		ss << "Face Race [" << w << "x" << h << "]";
+		SDL_SetWindowTitle(window, ss.str().c_str());
 	};
 	on_resize();
 

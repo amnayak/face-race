@@ -81,6 +81,7 @@ CLIENT_NAMES =
   Face
 	draw_text
 	Sound
+	Font
 	;
 
 if $(OS) = NT {
