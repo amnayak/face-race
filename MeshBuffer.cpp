@@ -11,7 +11,7 @@
 #include <set>
 #include <cstddef>
 
-MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
+MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mode(draw_mode) {
 	glGenBuffers(1, &vbo);
 
 	std::ifstream file(filename, std::ios::binary);
@@ -19,12 +19,7 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	GLuint total = 0;
 	//read + upload data chunk:
 	if (filename.size() >= 2 && filename.substr(filename.size()-2) == ".p") {
-		struct Vertex {
-			glm::vec3 Position;
-		};
-		static_assert(sizeof(Vertex) == 3*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PVertex Vertex;
 		read_chunk(file, "p...", &data);
 
 		//upload data:
@@ -34,47 +29,40 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 
 		total = GLuint(data.size()); //store total for later checks on index
 
+		format = P;
+
 		//store attrib locations:
 		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
 
 	} else if (filename.size() >= 3 && filename.substr(filename.size()-3) == ".pn") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNVertex Vertex;
 		read_chunk(file, "pn..", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		total = GLuint(data.size()); //store total for later checks on index
+
+		format = PN;
 
 		//store attrib locations:
 		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
 		Normal = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Normal));
 
 	} else if (filename.size() >= 4 && filename.substr(filename.size()-4) == ".pnc") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-			glm::u8vec4 Color;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4+4*1, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNCVertex Vertex;
 		read_chunk(file, "pnc.", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		total = GLuint(data.size()); //store total for later checks on index
+
+		format = PNC;
 
 		//store attrib locations:
 		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
@@ -82,23 +70,17 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 		Color = Attrib(4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), offsetof(Vertex, Color));
 
 	} else if (filename.size() >= 5 && filename.substr(filename.size()-5) == ".pnct") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-			glm::u8vec4 Color;
-			glm::vec2 TexCoord;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4+4*1+2*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNCTVertex Vertex;
 		read_chunk(file, "pnct", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		total = GLuint(data.size()); //store total for later checks on index
+
+		format = PNCT;
 
 		//store attrib locations:
 		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
@@ -109,6 +91,8 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
 	}
+
+	vertex_data = &data;
 
 	std::vector< char > strings;
 	read_chunk(file, "str0", &strings);
@@ -154,6 +138,31 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	}
 	std::cout << std::endl;
 	*/
+}
+
+void update_vertex_data(std::vector<void *> data) {
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	switch(format) {
+		case P:
+		typedef PVertex Vertex;
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		break;
+		case PN:
+		typedef PNVertex Vertex;
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		break;
+		case PNC:
+		typedef PNCVertex Vertex;
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		break;
+		case PNCT:
+		typedef PNCTVertex Vertex;
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		break;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 const MeshBuffer::Mesh &MeshBuffer::lookup(std::string const &name) const {

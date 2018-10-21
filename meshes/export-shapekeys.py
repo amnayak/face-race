@@ -13,17 +13,13 @@ for i in range(0,len(sys.argv)):
 	if sys.argv[i] == '--':
 		args = sys.argv[i+1:]
 
-if len(args) != 2:
-	print("\n\nUsage:\nblender --background --python export-meshes.py -- <infile.blend>[:layer] <outfile.p[n][c][t][l]>\nExports the meshes referenced by all objects in layer (default 1) to a binary blob, indexed by the names of the objects that reference them. If 'l' is specified in the file extension, only mesh edges will be exported.\n")
+if len(args) != 3:
+	print("\n\nUsage:\nblender --background --python export-meshes.py -- <infile.blend> <outfile.keys> <object>\nExports the shapekeys referenced by the object specified (or all if none specified) in layer (default 1) to a binary blob, indexed by the names of the objects that reference them.\n")
 	exit(1)
 
 infile = args[0]
-layer = 1
-m = re.match(r'^(.*):(\d+)$', infile)
-if m:
-	infile = m.group(1)
-	layer = int(m.group(2))
 outfile = args[1]
+object_to_pull = args[2]
 
 assert layer >= 1 and layer <= 20
 
@@ -37,15 +33,7 @@ class FileType:
 		self.vertex_bytes = 3 * 4
 
 filetypes = {
-	".p" : FileType(b"p..."),
-	".pl" : FileType(b"p...", True),
-	".pn" : FileType(b"pn.."),
-	".pc" : FileType(b"pc.."),
-	".pt" : FileType(b"pt.."),
-	".pnc" : FileType(b"pnc."),
-	".pct" : FileType(b"pct."),
-	".pnt" : FileType(b"pnt."),
-	".pnct" : FileType(b"pnct"),
+	".keys" : FileType(b"keys"),
 }
 
 filetype = None
@@ -70,14 +58,14 @@ bpy.ops.wm.open_mainfile(filepath=infile)
 #meshes to write:
 to_write = set()
 for obj in bpy.data.objects:
-	if obj.layers[layer-1] and obj.type == 'MESH' and obj.data.shape_keys:
+	if obj.layers[layer-1] and obj.type == 'MESH' and obj.name == object_to_pull and obj.data.shape_keys:
 		for block in obj.data.shape_keys.key_blocks: #adds each shape key in
 			to_write.add(block)
 
-#data contains vertex and normal data from the meshes:
+#data contains vertex position data for each shape key:
 data = b''
 
-#strings contains the mesh names:
+#strings contains the shapekey names:
 strings = b''
 
 #index gives offsets into the data (and names) for each mesh:
@@ -85,7 +73,6 @@ index = b''
 
 vertex_count = 0
 for obj in to_write:
-
 	mesh = obj
 	name = obj.name
 
@@ -102,7 +89,6 @@ for obj in to_write:
 	#...count will be written below
 
 	for d in obj.data:
-		vertex = d.co
 		data += struct.pack('fff', *vertex)
 		vertex_count += 1;
 
