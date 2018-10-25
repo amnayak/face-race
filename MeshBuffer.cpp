@@ -140,25 +140,21 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 	*/
 }
 
-void update_vertex_data(std::vector<void *> data) {
+void MeshBuffer::update_vertex_data(std::vector<char> &data) {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
 	switch(format) {
 		case P:
-		typedef PVertex Vertex;
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PVertex), data.data(), draw_mode);
 		break;
 		case PN:
-		typedef PNVertex Vertex;
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNVertex), data.data(), draw_mode);
 		break;
 		case PNC:
-		typedef PNCVertex Vertex;
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNCVertex), data.data(), draw_mode);
 		break;
 		case PNCT:
-		typedef PNCTVertex Vertex;
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNCTVertex), data.data(), draw_mode);
 		break;
 	}
 
@@ -174,7 +170,12 @@ const MeshBuffer::Mesh &MeshBuffer::lookup(std::string const &name) const {
 }
 
 bool MeshBuffer::contains(const std::string &name) const {
-	return std::find(meshes.begin(), meshes.end(), name) != meshes.end();
+	for(const std::pair<const std::string, Mesh> &cur : meshes) {
+		if(cur.first == name) {
+		    return true;
+		}
+	}
+	return false;
 }
 
 GLuint MeshBuffer::make_vao_for_program(GLuint program) const {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <map>
 
 #include <glm/glm.hpp>
@@ -62,7 +63,7 @@ struct MeshBuffer {
 	Attrib TexCoord;
 
 	const GLenum draw_mode;
-	const DataFormat format;
+	DataFormat format;
 
 	//construct from a file:
 	// note: will throw if file fails to read.
@@ -77,7 +78,7 @@ struct MeshBuffer {
 	const Mesh &lookup(std::string const &name) const;
 	bool contains(std::string const &name) const;
 
-	void update_vertex_data(std::vector<void *> data);
+	void update_vertex_data(std::vector<char> &data);
 
 	//build a vertex array object that links this vbo to attributes to a program:
 	//  will throw if program defines attributes not contained in this buffer
@@ -87,8 +88,9 @@ struct MeshBuffer {
 	//internals:
 	std::map< std::string, Mesh > meshes;
 
-	const std::vector< char > *const vertex_data;
+	std::vector< char > *vertex_data;
 
 private:
+	friend class ShapeKeyMesh;
 	std::vector< char > data;
 };

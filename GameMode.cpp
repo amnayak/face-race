@@ -23,25 +23,47 @@
 #include <cstddef>
 #include <random>
 
-static MeshBuffer const* suzanne_mesh;
+static MeshBuffer *suzanne_mesh;
+// Key: name of mesh
+// Value: index into meshes / meshes_for_***_program
+static std::map<std::string, unsigned short> mesh2idx;
 
 Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
-	std::vector<MeshBuffer const*> *ret = new std::vector<MeshBuffer *>;
+	std::vector<MeshBuffer *> *ret = new std::vector<MeshBuffer *>;
+
 	ret->push_back(new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW));
-	suzanne_mesh = new MeshBuffer(data_path("suzanne.pnct"), GL_DYNAMIC_DRAW)
+	suzanne_mesh = new MeshBuffer(data_path("suzanne.pnct"), GL_DYNAMIC_DRAW);
 	ret->push_back(suzanne_mesh);
+
+	unsigned short idx = 0;
+	for(MeshBuffer *cur : *ret) {
+		for(std::pair<std::string, MeshBuffer::Mesh> p : cur->meshes) {
+			mesh2idx.emplace(p.first, idx);
+		}
+		++idx; // i dont care about writing a for loop the right way
+	}
+
 	return ret;
 });
 
 
-Load< GLuint > meshes_for_texture_program(LoadTagDefault, [](){
+Load< std::vector<GLuint> > meshes_for_texture_program(LoadTagDefault, [](){
 	std::cout << "Loading texture program" << std::endl;
-	return new GLuint(meshes->make_vao_for_program(texture_program->program));
+	std::vector<GLuint> *ret = new std::vector<GLuint>;
+	for(int x = 0; x < meshes->size(); ++x) {
+		(*ret)[x] = (*meshes)[x]->make_vao_for_program(texture_program->program);
+	}
+	return ret;
 });
+	
 
-Load< GLuint > meshes_for_depth_program(LoadTagDefault, [](){
+Load< std::vector<GLuint> > meshes_for_depth_program(LoadTagDefault, [](){
 	std::cout << "Loading depth program" << std::endl;
-	return new GLuint(meshes->make_vao_for_program(depth_program->program));
+	std::vector<GLuint> *ret = new std::vector<GLuint>;
+	for(int x = 0; x < meshes->size(); ++x) {
+		(*ret)[x] = (*meshes)[x]->make_vao_for_program(depth_program->program);
+	}
+	return ret;
 });
 
 //used for fullscreen passes:
@@ -164,17 +186,17 @@ Load< Scene > scene(LoadTagDefault, [](){
 	//pre-build some program info (material) blocks to assign to each object:
 	Scene::Object::ProgramInfo texture_program_info;
 	texture_program_info.program = texture_program->program;
-	texture_program_info.vao = *meshes_for_texture_program;
+	texture_program_info.vao = 0; // will set later
 	texture_program_info.mvp_mat4  = texture_program->object_to_clip_mat4;
 	texture_program_info.mv_mat4x3 = texture_program->object_to_light_mat4x3;
 	texture_program_info.itmv_mat3 = texture_program->normal_to_light_mat3;
 
 	Scene::Object::ProgramInfo depth_program_info;
 	depth_program_info.program = depth_program->program;
-	depth_program_info.vao = *meshes_for_depth_program;
+	depth_program_info.vao = 0; // will set later
 	depth_program_info.mvp_mat4  = depth_program->object_to_clip_mat4;
 
-	std::vector<std::string const &> names;
+	std::vector<std::string const> names;
 	names.push_back(data_path("vignette.scene"));
 	names.push_back(data_path("suzanne.scene"));
 
@@ -193,18 +215,21 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 		obj->programs[Scene::Object::ProgramTypeShadow] = depth_program_info;
 
-		MeshBuffer::Mesh const &mesh;
-		for(MeshBuffer *cur : *meshes) {
+		MeshBuffer::Mesh const *mesh;
+		for(const MeshBuffer *const cur : (*meshes)) {
 			if(cur->contains(m)) {
-				mesh = cur->lookup(m);
+				mesh = &cur->lookup(m);
 			}
 		}
-		
-		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh.start;
-		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh.count;
 
-		obj->programs[Scene::Object::ProgramTypeShadow].start = mesh.start;
-		obj->programs[Scene::Object::ProgramTypeShadow].count = mesh.count;
+		obj->programs[Scene::Object::ProgramTypeDefault].vao = (*meshes_for_texture_program)[mesh2idx[m]];
+		obj->programs[Scene::Object::ProgramTypeShadow].vao = (*meshes_for_depth_program)[mesh2idx[m]];
+		
+		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh->start;
+		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh->count;
+
+		obj->programs[Scene::Object::ProgramTypeShadow].start = mesh->start;
+		obj->programs[Scene::Object::ProgramTypeShadow].count = mesh->count;
 	});
 
 	//look up camera parent transform:
@@ -251,9 +276,9 @@ GameMode::GameMode() {
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x)
 		weights[x] = 0.f;
-	
+
 	if(face->has_key_for_name("Basis"))
-		weights[face->frame_map["Basis"].index] = 1.f;
+		weights[face->frame_map.at("Basis").index] = 1.f;
 	else
 		weights[0] = 1.f;
 }
@@ -265,9 +290,9 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	//ignore any keys that are the result of automatic key repeat:
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
 		//TODO: decrease basis weight in a better way.. [multiple shape keys]
-		if(f->weights[0] >= 0.1f){
-			f->weights[0] -= 0.1f;
-			f->weights[1] += 0.1f;
+		if(weights[0] >= 0.1f){
+			weights[0] -= 0.1f;
+			weights[1] += 0.1f;
 		}
 
 		return true;
@@ -275,9 +300,9 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
 		//TODO: increase basis weight in a better way.. [multiple shape keys]
-		if(f->weights[0] <= 0.9f){
-			f->weights[0] += 0.1f;
-			f->weights[1] -= 0.1f;
+		if(weights[0] <= 0.9f){
+			weights[0] += 0.1f;
+			weights[1] -= 0.1f;
 		}
 		return true;
 	}

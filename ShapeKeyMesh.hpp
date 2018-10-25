@@ -36,7 +36,13 @@ public:
     void recalculate_mesh_data(const std::vector <float> &weights);
 
     bool has_key_for_name(std::string const& name) {
-        return std::find(key_frames.begin(), key_frames.end(), name) != key_frames.end();
+        for(ShapeKey &cur : key_frames) {
+            if(cur.name == name) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 private:
@@ -44,6 +50,4 @@ private:
      * on mesh->draw_mode.
      */
     std::vector <char> data_to_write;
-    /* loads shape key data in */
-    void load_shape_key_data(std::string filename); 
 };

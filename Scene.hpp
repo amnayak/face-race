@@ -200,7 +200,7 @@ struct Scene {
 	void load(std::string const &filename,
 		std::function< void(Scene &, Transform *, std::string const &) > const &on_object = nullptr
 	);
-	void load(std::vector<std::string const &> &filenames,
+	void load(std::vector<std::string const> const& filenames,
 		std::function< void(Scene &, Transform *, std::string const &) > const &on_object = nullptr
 	);
 };

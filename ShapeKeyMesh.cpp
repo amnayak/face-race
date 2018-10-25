@@ -17,9 +17,6 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
     if(mesh->meshes.size() != 1)
         throw std::runtime_error("meshbuffer must have exactly one mesh to use shape keys");
 
-    load_shape_key_data(filename);
-    //load in the base mesh into the buffer
-
     std::ifstream file(data_path("face.keys"), std::ios::binary);
 
     read_chunk(file, "keys", &vertex_buf);
@@ -38,7 +35,7 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
         if (!(entry.name_begin <= entry.name_end && entry.name_end <= strings_buf.size()))
             throw std::runtime_error("index entry has out-of-range name begin/end");
 
-        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= mesh->meshes[0].size()))
+        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= mesh->meshes[0].count))
             throw std::runtime_error("index entry has out-of-range vertex start/count");
         
         if(entry.vertex_end - entry.vertex_begin != mesh->meshes[0].count)
@@ -67,29 +64,29 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
     switch(mesh->format) {
         case P:
         sizeof_vertex = sizeof(PVertex);
-        offsetof_pos = sizeof(PVertex, Position);
+        offsetof_pos = offsetof(PVertex, Position);
         break;
         case PN:
         sizeof_vertex = sizeof(PNVertex);
-        offsetof_pos = sizeof(PNVertex, Position);
+        offsetof_pos = offsetof(PNVertex, Position);
         break;
         case PNC:
         sizeof_vertex = sizeof(PNCVertex);
-        offsetof_pos = sizeof(PNCVertex, Position);
+        offsetof_pos = offsetof(PNCVertex, Position);
         break;
         case PNCT:
         sizeof_vertex = sizeof(PNCTVertex);
-        offsetof_pos = sizeof(PNCTVertex, Position);
+        offsetof_pos = offsetof(PNCTVertex, Position);
         break;
     }
 
     size_t vcount = mesh->meshes[0].count;
     data_to_write.reserve(sizeof_vertex * vcount);
 
-    std::copy(mesh->data->begin(), mesh->data->end(), data_to_write.begin());
+    std::copy(mesh->data.begin(), mesh->data.end(), data_to_write.begin());
 
     for (int v = 0; v < vcount; v++) {
-        glm::vec3 *pos = (char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos;
+        glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
 
         float weight_sum = 0.0f;
         for(int i = 0; i < key_frames.size(); i++){
@@ -100,5 +97,5 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         assert (weight_sum == 1.0f);
     }
 
-    mesh->update_vertex_data(data_to_write.data());
+    mesh->update_vertex_data(data_to_write);
 }
