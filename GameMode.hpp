@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Mode.hpp"
-#include "Face.hpp"
+#include "ShapeKeyMesh.hpp"
 
 #include "MeshBuffer.hpp"
 #include "GL.hpp"
@@ -32,5 +32,6 @@ struct GameMode : public Mode {
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
 
-	Face *f;
+	ShapeKeyMesh *face;
+	std::vector<float> weights;
 };

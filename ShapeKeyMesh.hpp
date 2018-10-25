@@ -19,8 +19,9 @@ public:
     struct ShapeKey {
         std::string name;
         uint32_t start_vertex;
+        unsigned short index;
 
-        ShapeKey(std::string name, uint32_t start_vertex) : name(name), start_vertex(start_vertex) { }
+        ShapeKey(std::string name, uint32_t start_vertex, unsigned short index) : name(name), start_vertex(start_vertex), index(index) { }
     };
 
     // Buffer of raw vertex positions, for each shape key
@@ -33,6 +34,10 @@ public:
 
     /* recalculates linear combo, and stores into data_to_write */
     void recalculate_mesh_data(const std::vector <float> &weights);
+
+    bool has_key_for_name(std::string const& name) {
+        return std::find(key_frames.begin(), key_frames.end(), name) != key_frames.end();
+    }
 
 private:
     /* Generic data to write.  Packed with P/PN/PNC/PNCTVertex based

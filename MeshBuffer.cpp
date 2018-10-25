@@ -173,6 +173,10 @@ const MeshBuffer::Mesh &MeshBuffer::lookup(std::string const &name) const {
 	return f->second;
 }
 
+bool MeshBuffer::contains(const std::string &name) const {
+	return std::find(meshes.begin(), meshes.end(), name) != meshes.end();
+}
+
 GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
 	//create a new vertex array object:
 	GLuint vao = 0;

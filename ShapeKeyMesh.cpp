@@ -45,7 +45,7 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
             throw std::runtime_error("shape key entry does not match mesh buffer size");
 
         std::string name(&strings_buf[0] + entry.name_begin, &strings_buf[0] + entry.name_end);
-        ShapeKey key(name, entry.vertex_begin);
+        ShapeKey key(name, entry.vertex_begin, key_frames.size());
 
         key_frames.push_back(key);
         frame_map.insert({name, key});

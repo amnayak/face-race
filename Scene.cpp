@@ -266,6 +266,13 @@ Scene::~Scene() {
 	}
 }
 
+void Scene::load(std::vector<std::string const &> &filenames,
+	std::function< void(Scene &, Transform *, std::string const &) > const &on_object) {
+	for(std::string const &cur : filenames) {
+		load(cur, on_object);
+	}
+}
+
 void Scene::load(std::string const &filename,
 	std::function< void(Scene &, Transform *, std::string const &) > const &on_object) {
 

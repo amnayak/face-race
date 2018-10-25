@@ -78,7 +78,7 @@ CLIENT_NAMES =
 	MenuMode
 	Load
 	MeshBuffer
-  Face
+	ShapeKeyMesh
 	draw_text
 	Sound
 	Font

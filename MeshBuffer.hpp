@@ -75,6 +75,7 @@ struct MeshBuffer {
 		GLuint count = 0;
 	};
 	const Mesh &lookup(std::string const &name) const;
+	bool contains(std::string const &name) const;
 
 	void update_vertex_data(std::vector<void *> data);
 

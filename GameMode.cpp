@@ -23,8 +23,14 @@
 #include <cstddef>
 #include <random>
 
-Load< MeshBuffer > meshes(LoadTagDefault, [](){
-	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
+static MeshBuffer const* suzanne_mesh;
+
+Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
+	std::vector<MeshBuffer const*> *ret = new std::vector<MeshBuffer *>;
+	ret->push_back(new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW));
+	suzanne_mesh = new MeshBuffer(data_path("suzanne.pnct"), GL_DYNAMIC_DRAW)
+	ret->push_back(suzanne_mesh);
+	return ret;
 });
 
 
@@ -168,9 +174,12 @@ Load< Scene > scene(LoadTagDefault, [](){
 	depth_program_info.vao = *meshes_for_depth_program;
 	depth_program_info.mvp_mat4  = depth_program->object_to_clip_mat4;
 
+	std::vector<std::string const &> names;
+	names.push_back(data_path("vignette.scene"));
+	names.push_back(data_path("suzanne.scene"));
 
 	//load transform hierarchy:
-	ret->load(data_path("vignette.scene"), [&](Scene &s, Scene::Transform *t, std::string const &m){
+	ret->load(names, [&](Scene &s, Scene::Transform *t, std::string const &m){
 		Scene::Object *obj = s.new_object(t);
 
 		obj->programs[Scene::Object::ProgramTypeDefault] = texture_program_info;
@@ -184,7 +193,13 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 		obj->programs[Scene::Object::ProgramTypeShadow] = depth_program_info;
 
-		MeshBuffer::Mesh const &mesh = meshes->lookup(m);
+		MeshBuffer::Mesh const &mesh;
+		for(MeshBuffer *cur : *meshes) {
+			if(cur->contains(m)) {
+				mesh = cur->lookup(m);
+			}
+		}
+		
 		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh.start;
 		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh.count;
 
@@ -231,7 +246,16 @@ Load< Scene > scene(LoadTagDefault, [](){
 });
 
 GameMode::GameMode() {
-		f = new Face(); //TODO remember to destroy
+	face = new ShapeKeyMesh("suzanne.keys", suzanne_mesh); //TODO remember to destroy
+
+	weights.resize(face->key_frames.size());
+	for(int x = 0; x < weights.size(); ++x)
+		weights[x] = 0.f;
+	
+	if(face->has_key_for_name("Basis"))
+		weights[face->frame_map["Basis"].index] = 1.f;
+	else
+		weights[0] = 1.f;
 }
 
 GameMode::~GameMode() {
@@ -276,6 +300,8 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 void GameMode::update(float elapsed) {
 	camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
+
+	face->recalculate_mesh_data(weights);
 }
 
 //GameMode will render to some offscreen framebuffer(s).
@@ -444,13 +470,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glActiveTexture(GL_TEXTURE0);
 
-	assert (f != NULL);
-	Scene::Transform test;
-	test.position = glm::vec3(0.f, 0.f, 3.f);
-	test.scale = glm::vec3(1.f, 1.f, 1.f);
-	f->recalculate_mesh_data();
-	f->draw_face(test, camera); //TODO actually draw
-
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	GL_ERRORS();
@@ -474,7 +493,5 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	font_arial->screen_dim = drawable_size;
 	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
 
-	assert (f != NULL);
-	//f->draw_face(, camera) TODO actually draw
 	glEnable(GL_DEPTH_TEST);
 }
