@@ -24,10 +24,10 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
 
 		format = P;
 
@@ -40,10 +40,10 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
 
 		format = PN;
 
@@ -57,10 +57,10 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
 
 		format = PNC;
 
@@ -75,10 +75,10 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
 
 		format = PNCT;
 

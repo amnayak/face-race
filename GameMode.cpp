@@ -51,7 +51,7 @@ Load< std::vector<GLuint> > meshes_for_texture_program(LoadTagDefault, [](){
 	std::cout << "Loading texture program" << std::endl;
 	std::vector<GLuint> *ret = new std::vector<GLuint>;
 	for(int x = 0; x < meshes->size(); ++x) {
-		(*ret)[x] = (*meshes)[x]->make_vao_for_program(texture_program->program);
+		ret->push_back((*meshes)[x]->make_vao_for_program(texture_program->program));
 	}
 	return ret;
 });
@@ -61,7 +61,7 @@ Load< std::vector<GLuint> > meshes_for_depth_program(LoadTagDefault, [](){
 	std::cout << "Loading depth program" << std::endl;
 	std::vector<GLuint> *ret = new std::vector<GLuint>;
 	for(int x = 0; x < meshes->size(); ++x) {
-		(*ret)[x] = (*meshes)[x]->make_vao_for_program(depth_program->program);
+		ret->push_back((*meshes)[x]->make_vao_for_program(depth_program->program));
 	}
 	return ret;
 });

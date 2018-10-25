@@ -15,9 +15,10 @@ DIST=../dist
 all : \
 	$(DIST)/menu.p \
 	$(DIST)/vignette.pnct \
-	$(DIST)/face.pnct \
-	$(DIST)/face_sk.p \
 	$(DIST)/vignette.scene \
+	$(DIST)/suzanne.pnct \
+	$(DIST)/suzanne.keys \
+	$(DIST)/suzanne.scene \
 
 
 $(DIST)/%.p : %.blend export-meshes.py
@@ -29,11 +30,8 @@ $(DIST)/%.pnc : %.blend export-meshes.py
 $(DIST)/%.pnct : %.blend export-meshes.py
 	$(BLENDER) --background --python export-meshes.py -- '$<' '$@'
 
-$(DIST)/%_sk.p : %.blend export-shapekeys.py
-	$(BLENDER) --background --python export-shapekeys.py -- '$<' '$@'
+$(DIST)/%.keys : %.blend export-shapekeys.py
+	$(BLENDER) --background --python export-shapekeys.py -- '$<' '$@' '$*'
 
 $(DIST)/%.scene : %.blend export-scene.py
 	$(BLENDER) --background --python export-scene.py -- '$<' '$@'
-
-$(DIST)/phone-bank.w : phone-bank.blend export-walkmeshes.py
-	$(BLENDER) --background --python export-walkmeshes.py -- '$<':3 '$@'

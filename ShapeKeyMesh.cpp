@@ -17,7 +17,9 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
     if(mesh->meshes.size() != 1)
         throw std::runtime_error("meshbuffer must have exactly one mesh to use shape keys");
 
-    std::ifstream file(data_path("face.keys"), std::ios::binary);
+    std::ifstream file(data_path(filename), std::ios::binary);
+
+    std::cout << "Reading keys from file " << filename << "..." << std::flush; 
 
     read_chunk(file, "keys", &vertex_buf);
 
@@ -35,10 +37,14 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
         if (!(entry.name_begin <= entry.name_end && entry.name_end <= strings_buf.size()))
             throw std::runtime_error("index entry has out-of-range name begin/end");
 
-        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= mesh->meshes[0].count))
+        MeshBuffer::Mesh& cur_mesh = (*mesh->meshes.begin()).second;
+
+        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= cur_mesh.count))
             throw std::runtime_error("index entry has out-of-range vertex start/count");
+
+        std::cout << entry.vertex_end << " - " << entry.vertex_begin << " =?= " <<cur_mesh.count << std::endl;
         
-        if(entry.vertex_end - entry.vertex_begin != mesh->meshes[0].count)
+        if(entry.vertex_end - entry.vertex_begin != cur_mesh.count)
             throw std::runtime_error("shape key entry does not match mesh buffer size");
 
         std::string name(&strings_buf[0] + entry.name_begin, &strings_buf[0] + entry.name_end);
@@ -47,6 +53,8 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
         key_frames.push_back(key);
         frame_map.insert({name, key});
     }
+
+    std::cout << "Done." << std::endl;
 }
 
 ShapeKeyMesh::~ShapeKeyMesh() {

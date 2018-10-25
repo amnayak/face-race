@@ -21,7 +21,7 @@ infile = args[0]
 outfile = args[1]
 object_to_pull = args[2]
 
-print("Will export mesh with name " + object_to_pull.name + " of '" + infile + "' to '" + outfile + "'.")
+print("Will export mesh with name " + object_to_pull + " of '" + infile + "' to '" + outfile + "'.")
 
 class FileType:
 	def __init__(self, magic, as_lines = False):
@@ -87,6 +87,7 @@ for obj in to_write:
 	#...count will be written below
 
 	for d in obj.data:
+		vertex = d.co
 		data += struct.pack('fff', *vertex)
 		vertex_count += 1;
 
