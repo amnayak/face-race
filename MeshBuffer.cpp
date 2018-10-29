@@ -1,5 +1,6 @@
 #include "MeshBuffer.hpp"
 #include "read_chunk.hpp"
+#include "gl_errors.hpp"
 
 #include <glm/glm.hpp>
 
@@ -140,24 +141,14 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mod
 	*/
 }
 
-void MeshBuffer::update_vertex_data(std::vector<char> &data) {
+void MeshBuffer::update_vertex_data(std::vector<char> &ndata) {
+	if(ndata.size() != data.size())
+		throw std::runtime_error("Passed incorrect size (" + std::to_string(ndata.size()) + " instead of " + std::to_string(data.size()) + ") to update_vertex_data");
+
+	std::copy(ndata.begin(), ndata.end(), data.begin());
+
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-	switch(format) {
-		case P:
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PVertex), data.data(), draw_mode);
-		break;
-		case PN:
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNVertex), data.data(), draw_mode);
-		break;
-		case PNC:
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNCVertex), data.data(), draw_mode);
-		break;
-		case PNCT:
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(PNCTVertex), data.data(), draw_mode);
-		break;
-	}
-
+	glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -198,12 +189,17 @@ GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
 			bound.insert(location);
 		}
 	};
-	bind_attribute("Position", Position);
-	bind_attribute("Normal", Normal);
-	bind_attribute("Color", Color);
-	bind_attribute("TexCoord", TexCoord);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	if(Position.size != 0)
+		bind_attribute("Position", Position);
+	if(Normal.size != 0)
+		bind_attribute("Normal", Normal);
+	if(Color.size != 0)
+		bind_attribute("Color", Color);
+	if(TexCoord.size != 0)
+		bind_attribute("TexCoord", TexCoord);
+	
 	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	//Check that all active attributes were bound:
 	GLint active = 0;
@@ -220,6 +216,8 @@ GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
 			throw std::runtime_error("ERROR: active attribute '" + std::string(name) + "' in program is not bound.");
 		}
 	}
+
+	GL_ERRORS();
 
 	return vao;
 }

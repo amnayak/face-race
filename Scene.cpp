@@ -201,7 +201,6 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 	assert(program_type < Object::ProgramTypes);
 
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
-
 		//don't draw if no program of this type attached to object:
 		if (object->programs[program_type].program == 0) continue;
 

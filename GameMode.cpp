@@ -48,7 +48,7 @@ Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
 
 
 Load< std::vector<GLuint> > meshes_for_texture_program(LoadTagDefault, [](){
-	std::cout << "Loading texture program" << std::endl;
+	std::cout << "Loading texture program." << std::flush;
 	std::vector<GLuint> *ret = new std::vector<GLuint>;
 	for(int x = 0; x < meshes->size(); ++x) {
 		ret->push_back((*meshes)[x]->make_vao_for_program(texture_program->program));

@@ -39,10 +39,9 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
 
         MeshBuffer::Mesh& cur_mesh = (*mesh->meshes.begin()).second;
 
-        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= cur_mesh.count))
+        // TODO: Allow more than 2 shapekeys
+        if (!(entry.vertex_begin <= entry.vertex_end && entry.vertex_end <= vertex_buf.size()))
             throw std::runtime_error("index entry has out-of-range vertex start/count");
-
-        std::cout << entry.vertex_end << " - " << entry.vertex_begin << " =?= " <<cur_mesh.count << std::endl;
         
         if(entry.vertex_end - entry.vertex_begin != cur_mesh.count)
             throw std::runtime_error("shape key entry does not match mesh buffer size");
@@ -88,8 +87,8 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         break;
     }
 
-    size_t vcount = mesh->meshes[0].count;
-    data_to_write.reserve(sizeof_vertex * vcount);
+    size_t vcount = (*(mesh->meshes.begin())).second.count;
+    data_to_write.resize(sizeof_vertex * vcount);
 
     std::copy(mesh->data.begin(), mesh->data.end(), data_to_write.begin());
 

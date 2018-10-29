@@ -59,6 +59,7 @@ for obj in bpy.data.objects:
 	if obj.type == 'MESH' and obj.name == object_to_pull and obj.data.shape_keys:
 		for block in obj.data.shape_keys.key_blocks: #adds each shape key in
 			to_write.add(block)
+			to_write_mesh = obj.data
 
 #data contains vertex position data for each shape key:
 data = b''
@@ -71,7 +72,6 @@ index = b''
 
 vertex_count = 0
 for obj in to_write:
-	mesh = obj
 	name = obj.name
 
 	print("Writing '" + name + "'...")
@@ -86,11 +86,16 @@ for obj in to_write:
 	index += struct.pack('I', vertex_count) #vertex_begin
 	#...count will be written below
 
-	for d in obj.data:
-		vertex = d.co
-		data += struct.pack('fff', *vertex)
-		vertex_count += 1;
+	for poly in to_write_mesh.polygons:
+		assert(len(poly.loop_indices) == 3)
+		for i in range(0,3):
+			assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
+			loop = to_write_mesh.loops[poly.loop_indices[i]]
+			vertex = to_write_mesh.vertices[loop.vertex_index]
+			for x in vertex.co:
+				data += struct.pack('f', x)
 
+	vertex_count += len(to_write_mesh.polygons) * 3
 	index += struct.pack('I', vertex_count) #vertex_end
 
 
