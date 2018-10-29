@@ -145,10 +145,10 @@ void MeshBuffer::update_vertex_data(std::vector<char> &ndata) {
 	if(ndata.size() != data.size())
 		throw std::runtime_error("Passed incorrect size (" + std::to_string(ndata.size()) + " instead of " + std::to_string(data.size()) + ") to update_vertex_data");
 
-	std::copy(ndata.begin(), ndata.end(), data.begin());
+	data = ndata; // copy
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
+	glBufferData(GL_ARRAY_BUFFER, ndata.size(), ndata.data(), draw_mode);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 

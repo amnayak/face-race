@@ -88,20 +88,18 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
     }
 
     size_t vcount = (*(mesh->meshes.begin())).second.count;
-    data_to_write.resize(sizeof_vertex * vcount);
+    assert(sizeof_vertex * vcount == mesh->data.size());
 
-    std::copy(mesh->data.begin(), mesh->data.end(), data_to_write.begin());
+    if(data_to_write.size() != mesh->data.size())
+        data_to_write = mesh->data; //copy
 
     for (int v = 0; v < vcount; v++) {
         glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
 
-        float weight_sum = 0.0f;
+        *pos = glm::vec3(0,0,0);
         for(int i = 0; i < key_frames.size(); i++){
-            *pos += vertex_buf[v] * weights[i];
-            weight_sum += weights[i];
+            *pos += vertex_buf[v + i * vcount] * weights[i];
         }
-
-        assert (weight_sum == 1.0f);
     }
 
     mesh->update_vertex_data(data_to_write);

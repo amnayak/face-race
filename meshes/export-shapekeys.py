@@ -91,7 +91,7 @@ for obj in to_write:
 		for i in range(0,3):
 			assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
 			loop = to_write_mesh.loops[poly.loop_indices[i]]
-			vertex = to_write_mesh.vertices[loop.vertex_index]
+			vertex = obj.data[loop.vertex_index]
 			for x in vertex.co:
 				data += struct.pack('f', x)
 

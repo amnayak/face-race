@@ -22,6 +22,7 @@
 #include <map>
 #include <cstddef>
 #include <random>
+#include <sstream>
 
 static MeshBuffer *suzanne_mesh;
 // Key: name of mesh
@@ -180,6 +181,8 @@ Scene::Camera *camera = nullptr;
 Scene::Transform *spot_parent_transform = nullptr;
 Scene::Lamp *spot = nullptr;
 
+Scene::Object *suzanne_object = nullptr;
+
 Load< Scene > scene(LoadTagDefault, [](){
 	Scene *ret = new Scene;
 
@@ -209,6 +212,9 @@ Load< Scene > scene(LoadTagDefault, [](){
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *wood_tex;
 		} else if (t->name == "Pedestal") {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *marble_tex;
+		} else if (t->name == "suzanne") {
+			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
+			suzanne_object = obj;
 		} else {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
 		}
@@ -326,6 +332,13 @@ void GameMode::update(float elapsed) {
 	camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 
+	static float timer = 0;
+	timer += elapsed;
+
+	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
+	weights[1] = 1.f - weights[0];
+
+	suzanne_object->transform->position.z = 2;
 	face->recalculate_mesh_data(weights);
 }
 
@@ -513,10 +526,18 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	glDisable(GL_DEPTH_TEST);
 
+	std::ostringstream ss;
+	ss << "Weights: [";
+	for(int x = 0; x < weights.size(); ++x) {
+		if(x != 0) ss << ", ";
+		ss << weights[x];
+	}
+	ss << "]";
+
 	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string("Hello, world!  I am a font with kerning!", glm::vec2(0.2f, 0.8f), 64, 0.4f);
-	font_arial->screen_dim = drawable_size;
-	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
+	// font_arial->screen_dim = drawable_size;
+	// font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
 
 	glEnable(GL_DEPTH_TEST);
 }
