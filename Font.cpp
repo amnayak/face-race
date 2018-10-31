@@ -304,7 +304,8 @@ void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, flo
 	size = size == 0 ? this->size : size;
 	float scale = size / this->size;
 
-	static bool printed = false;
+	static bool printed = true;//false;
+	debugging_print = false;
 
 	// TODO: Overflow text based on word, not by char
 	for(; *text != 0; ++text) {

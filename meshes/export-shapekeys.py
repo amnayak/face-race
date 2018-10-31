@@ -4,7 +4,7 @@
 #based on 'export-sprites.py' and 'glsprite.py' from TCHOW Rainbow; code used is released into the public domain.
 
 #Note: Script meant to be executed from within blender, as per:
-#blender --background --python export-meshes.py -- <infile.blend>[:layer] <outfile.p[n][c][t]>
+#blender --background --python export-meshes.py -- <infile.blend> <outfile.keys> <object>
 
 import sys,re
 
@@ -13,21 +13,15 @@ for i in range(0,len(sys.argv)):
 	if sys.argv[i] == '--':
 		args = sys.argv[i+1:]
 
-if len(args) != 2:
-	print("\n\nUsage:\nblender --background --python export-meshes.py -- <infile.blend>[:layer] <outfile.p[n][c][t][l]>\nExports the meshes referenced by all objects in layer (default 1) to a binary blob, indexed by the names of the objects that reference them. If 'l' is specified in the file extension, only mesh edges will be exported.\n")
+if len(args) != 3:
+	print("\n\nUsage:\nblender --background --python export-meshes.py -- <infile.blend> <outfile.keys> <object>\nExports the shapekeys referenced by the object specified (or all if none specified) to a binary blob, indexed by the names of the objects that reference them.\n")
 	exit(1)
 
 infile = args[0]
-layer = 1
-m = re.match(r'^(.*):(\d+)$', infile)
-if m:
-	infile = m.group(1)
-	layer = int(m.group(2))
 outfile = args[1]
+object_to_pull = args[2]
 
-assert layer >= 1 and layer <= 20
-
-print("Will export meshes referenced from layer " + str(layer) + " of '" + infile + "' to '" + outfile + "'.")
+print("Will export mesh with name " + object_to_pull + " of '" + infile + "' to '" + outfile + "'.")
 
 class FileType:
 	def __init__(self, magic, as_lines = False):
@@ -37,15 +31,7 @@ class FileType:
 		self.vertex_bytes = 3 * 4
 
 filetypes = {
-	".p" : FileType(b"p..."),
-	".pl" : FileType(b"p...", True),
-	".pn" : FileType(b"pn.."),
-	".pc" : FileType(b"pc.."),
-	".pt" : FileType(b"pt.."),
-	".pnc" : FileType(b"pnc."),
-	".pct" : FileType(b"pct."),
-	".pnt" : FileType(b"pnt."),
-	".pnct" : FileType(b"pnct"),
+	".keys" : FileType(b"keys"),
 }
 
 filetype = None
@@ -70,14 +56,15 @@ bpy.ops.wm.open_mainfile(filepath=infile)
 #meshes to write:
 to_write = set()
 for obj in bpy.data.objects:
-	if obj.layers[layer-1] and obj.type == 'MESH' and obj.data.shape_keys:
+	if obj.type == 'MESH' and obj.name == object_to_pull and obj.data.shape_keys:
 		for block in obj.data.shape_keys.key_blocks: #adds each shape key in
 			to_write.add(block)
+			to_write_mesh = obj.data
 
-#data contains vertex and normal data from the meshes:
+#data contains vertex position data for each shape key:
 data = b''
 
-#strings contains the mesh names:
+#strings contains the shapekey names:
 strings = b''
 
 #index gives offsets into the data (and names) for each mesh:
@@ -85,8 +72,6 @@ index = b''
 
 vertex_count = 0
 for obj in to_write:
-
-	mesh = obj
 	name = obj.name
 
 	print("Writing '" + name + "'...")
@@ -101,11 +86,16 @@ for obj in to_write:
 	index += struct.pack('I', vertex_count) #vertex_begin
 	#...count will be written below
 
-	for d in obj.data:
-		vertex = d.co
-		data += struct.pack('fff', *vertex)
-		vertex_count += 1;
+	for poly in to_write_mesh.polygons:
+		assert(len(poly.loop_indices) == 3)
+		for i in range(0,3):
+			assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
+			loop = to_write_mesh.loops[poly.loop_indices[i]]
+			vertex = obj.data[loop.vertex_index]
+			for x in vertex.co:
+				data += struct.pack('f', x)
 
+	vertex_count += len(to_write_mesh.polygons) * 3
 	index += struct.pack('I', vertex_count) #vertex_end
 
 

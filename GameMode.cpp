@@ -22,20 +22,49 @@
 #include <map>
 #include <cstddef>
 #include <random>
+#include <sstream>
 
-Load< MeshBuffer > meshes(LoadTagDefault, [](){
-	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
+static MeshBuffer *suzanne_mesh;
+// Key: name of mesh
+// Value: index into meshes / meshes_for_***_program
+static std::map<std::string, unsigned short> mesh2idx;
+
+Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
+	std::vector<MeshBuffer *> *ret = new std::vector<MeshBuffer *>;
+
+	ret->push_back(new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW));
+	suzanne_mesh = new MeshBuffer(data_path("suzanne.pnct"), GL_DYNAMIC_DRAW);
+	ret->push_back(suzanne_mesh);
+
+	unsigned short idx = 0;
+	for(MeshBuffer *cur : *ret) {
+		for(std::pair<std::string, MeshBuffer::Mesh> p : cur->meshes) {
+			mesh2idx.emplace(p.first, idx);
+		}
+		++idx; // i dont care about writing a for loop the right way
+	}
+
+	return ret;
 });
 
 
-Load< GLuint > meshes_for_texture_program(LoadTagDefault, [](){
-	std::cout << "Loading texture program" << std::endl;
-	return new GLuint(meshes->make_vao_for_program(texture_program->program));
+Load< std::vector<GLuint> > meshes_for_texture_program(LoadTagDefault, [](){
+	std::cout << "Loading texture program." << std::flush;
+	std::vector<GLuint> *ret = new std::vector<GLuint>;
+	for(int x = 0; x < meshes->size(); ++x) {
+		ret->push_back((*meshes)[x]->make_vao_for_program(texture_program->program));
+	}
+	return ret;
 });
+	
 
-Load< GLuint > meshes_for_depth_program(LoadTagDefault, [](){
+Load< std::vector<GLuint> > meshes_for_depth_program(LoadTagDefault, [](){
 	std::cout << "Loading depth program" << std::endl;
-	return new GLuint(meshes->make_vao_for_program(depth_program->program));
+	std::vector<GLuint> *ret = new std::vector<GLuint>;
+	for(int x = 0; x < meshes->size(); ++x) {
+		ret->push_back((*meshes)[x]->make_vao_for_program(depth_program->program));
+	}
+	return ret;
 });
 
 //used for fullscreen passes:
@@ -152,25 +181,30 @@ Scene::Camera *camera = nullptr;
 Scene::Transform *spot_parent_transform = nullptr;
 Scene::Lamp *spot = nullptr;
 
+Scene::Object *suzanne_object = nullptr;
+
 Load< Scene > scene(LoadTagDefault, [](){
 	Scene *ret = new Scene;
 
 	//pre-build some program info (material) blocks to assign to each object:
 	Scene::Object::ProgramInfo texture_program_info;
 	texture_program_info.program = texture_program->program;
-	texture_program_info.vao = *meshes_for_texture_program;
+	texture_program_info.vao = 0; // will set later
 	texture_program_info.mvp_mat4  = texture_program->object_to_clip_mat4;
 	texture_program_info.mv_mat4x3 = texture_program->object_to_light_mat4x3;
 	texture_program_info.itmv_mat3 = texture_program->normal_to_light_mat3;
 
 	Scene::Object::ProgramInfo depth_program_info;
 	depth_program_info.program = depth_program->program;
-	depth_program_info.vao = *meshes_for_depth_program;
+	depth_program_info.vao = 0; // will set later
 	depth_program_info.mvp_mat4  = depth_program->object_to_clip_mat4;
 
+	std::vector<std::string const> names;
+	names.push_back(data_path("vignette.scene"));
+	names.push_back(data_path("suzanne.scene"));
 
 	//load transform hierarchy:
-	ret->load(data_path("vignette.scene"), [&](Scene &s, Scene::Transform *t, std::string const &m){
+	ret->load(names, [&](Scene &s, Scene::Transform *t, std::string const &m){
 		Scene::Object *obj = s.new_object(t);
 
 		obj->programs[Scene::Object::ProgramTypeDefault] = texture_program_info;
@@ -178,18 +212,30 @@ Load< Scene > scene(LoadTagDefault, [](){
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *wood_tex;
 		} else if (t->name == "Pedestal") {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *marble_tex;
+		} else if (t->name == "suzanne") {
+			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
+			suzanne_object = obj;
 		} else {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
 		}
 
 		obj->programs[Scene::Object::ProgramTypeShadow] = depth_program_info;
 
-		MeshBuffer::Mesh const &mesh = meshes->lookup(m);
-		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh.start;
-		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh.count;
+		MeshBuffer::Mesh const *mesh;
+		for(const MeshBuffer *const cur : (*meshes)) {
+			if(cur->contains(m)) {
+				mesh = &cur->lookup(m);
+			}
+		}
 
-		obj->programs[Scene::Object::ProgramTypeShadow].start = mesh.start;
-		obj->programs[Scene::Object::ProgramTypeShadow].count = mesh.count;
+		obj->programs[Scene::Object::ProgramTypeDefault].vao = (*meshes_for_texture_program)[mesh2idx[m]];
+		obj->programs[Scene::Object::ProgramTypeShadow].vao = (*meshes_for_depth_program)[mesh2idx[m]];
+		
+		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh->start;
+		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh->count;
+
+		obj->programs[Scene::Object::ProgramTypeShadow].start = mesh->start;
+		obj->programs[Scene::Object::ProgramTypeShadow].count = mesh->count;
 	});
 
 	//look up camera parent transform:
@@ -231,7 +277,16 @@ Load< Scene > scene(LoadTagDefault, [](){
 });
 
 GameMode::GameMode() {
-		f = new Face(); //TODO remember to destroy
+	face = new ShapeKeyMesh("suzanne.keys", suzanne_mesh); //TODO remember to destroy
+
+	weights.resize(face->key_frames.size());
+	for(int x = 0; x < weights.size(); ++x)
+		weights[x] = 0.f;
+
+	if(face->has_key_for_name("Basis"))
+		weights[face->frame_map.at("Basis").index] = 1.f;
+	else
+		weights[0] = 1.f;
 }
 
 GameMode::~GameMode() {
@@ -241,9 +296,9 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	//ignore any keys that are the result of automatic key repeat:
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
 		//TODO: decrease basis weight in a better way.. [multiple shape keys]
-		if(f->weights[0] >= 0.1f){
-			f->weights[0] -= 0.1f;
-			f->weights[1] += 0.1f;
+		if(weights[0] >= 0.1f){
+			weights[0] -= 0.1f;
+			weights[1] += 0.1f;
 		}
 
 		return true;
@@ -251,9 +306,9 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
 		//TODO: increase basis weight in a better way.. [multiple shape keys]
-		if(f->weights[0] <= 0.9f){
-			f->weights[0] += 0.1f;
-			f->weights[1] -= 0.1f;
+		if(weights[0] <= 0.9f){
+			weights[0] += 0.1f;
+			weights[1] -= 0.1f;
 		}
 		return true;
 	}
@@ -276,6 +331,15 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 void GameMode::update(float elapsed) {
 	camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
+
+	static float timer = 0;
+	timer += elapsed;
+
+	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
+	weights[1] = 1.f - weights[0];
+
+	suzanne_object->transform->position.z = 2;
+	face->recalculate_mesh_data(weights);
 }
 
 //GameMode will render to some offscreen framebuffer(s).
@@ -382,8 +446,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	GL_ERRORS();
 
-
-
 	//Draw scene to off-screen framebuffer:
 	glBindFramebuffer(GL_FRAMEBUFFER, fbs.fb);
 	glViewport(0,0,drawable_size.x, drawable_size.y);
@@ -464,12 +526,18 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	glDisable(GL_DEPTH_TEST);
 
-	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string("Hello, world!  I am a font with kerning!", glm::vec2(0.2f, 0.8f), 64, 0.4f);
-	font_arial->screen_dim = drawable_size;
-	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+	std::ostringstream ss;
+	ss << "Weights: [";
+	for(int x = 0; x < weights.size(); ++x) {
+		if(x != 0) ss << ", ";
+		ss << weights[x];
+	}
+	ss << "]";
 
-	assert (f != NULL);
-	//f->draw_face(, camera) TODO actually draw
+	font_times->screen_dim = drawable_size;
+	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
+	// font_arial->screen_dim = drawable_size;
+	// font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+
 	glEnable(GL_DEPTH_TEST);
 }
