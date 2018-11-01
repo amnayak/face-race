@@ -23,6 +23,24 @@
 #include <cstddef>
 #include <random>
 #include <sstream>
+#include <chrono>
+typedef std::chrono::high_resolution_clock Time;
+typedef std::chrono::duration<float> fsec;
+auto t0 = Time::now();
+auto t1 = Time::now();
+
+//TODO: hacky garbage right here
+uint32_t GAME_OVER = 0;
+uint32_t WAIT_FOR_INPUT = 1;
+uint32_t CHECK = 3;
+
+bool did_happy = false;
+bool happy = false;
+bool sad = false;
+bool gg = false;
+
+uint32_t posedge_clock = 1;
+uint32_t state = WAIT_FOR_INPUT;
 
 static MeshBuffer *suzanne_mesh;
 // Key: name of mesh
@@ -56,7 +74,7 @@ Load< std::vector<GLuint> > meshes_for_texture_program(LoadTagDefault, [](){
 	}
 	return ret;
 });
-	
+
 
 Load< std::vector<GLuint> > meshes_for_depth_program(LoadTagDefault, [](){
 	std::cout << "Loading depth program" << std::endl;
@@ -230,7 +248,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 		obj->programs[Scene::Object::ProgramTypeDefault].vao = (*meshes_for_texture_program)[mesh2idx[m]];
 		obj->programs[Scene::Object::ProgramTypeShadow].vao = (*meshes_for_depth_program)[mesh2idx[m]];
-		
+
 		obj->programs[Scene::Object::ProgramTypeDefault].start = mesh->start;
 		obj->programs[Scene::Object::ProgramTypeDefault].count = mesh->count;
 
@@ -302,21 +320,11 @@ GameMode::~GameMode() {
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 	//ignore any keys that are the result of automatic key repeat:
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
-		//TODO: decrease basis weight in a better way.. [multiple shape keys]
-		if(weights[0] >= 0.1f){
-			weights[0] -= 0.1f;
-			weights[1] += 0.1f;
-		}
 
 		return true;
 	}
 
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
-		//TODO: increase basis weight in a better way.. [multiple shape keys]
-		if(weights[0] <= 0.9f){
-			weights[0] += 0.1f;
-			weights[1] -= 0.1f;
-		}
 		return true;
 	}
 
@@ -334,40 +342,40 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	weights[MOUTH_OPEN] = mouth_factor;
 	weights[BASIS] = 1.0f - eye_r_factor - eye_l_factor - brow_r_factor - brow_l_factor - mouth_factor;
 	if (evt.type == SDL_MOUSEMOTION) {
-		float adj_x = evt.motion.x / (float)window_size.x; 
+		float adj_x = evt.motion.x / (float)window_size.x;
 		float adj_y = ((float)window_size.y - evt.motion.y)/(float)window_size.y;
 
 		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 			// camera_spin += 5.0f * evt.motion.xrel / float(window_size.x);
-			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) && 
+			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) &&
 				(eye_handle->pos.y  - 0.05f <= adj_y  && adj_y <= eye_handle->pos.y+eye_handle->size.y + 0.05f)) {
 				eye_handle->on_mouse_move(glm::vec2(adj_x, 0.6f));
 				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
 				brow_r_handle->pos = glm::vec2(0.65f, 0.7f);
 				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
-			} else if ((brow_l_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_l_handle->pos.x+brow_l_handle->size.x + 0.05f)) && 
+			} else if ((brow_l_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_l_handle->pos.x+brow_l_handle->size.x + 0.05f)) &&
 				(brow_l_handle->pos.y  - 0.05f <= adj_y  && adj_y <= brow_l_handle->pos.y+brow_l_handle->size.y + 0.05f)) {
 				brow_l_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
-				
+
 				eye_handle->pos = glm::vec2(0.475f, 0.6f);
 				brow_r_handle->pos = glm::vec2(0.65f, 0.7f);
 				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
-			} else if ((brow_r_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_r_handle->pos.x+brow_r_handle->size.x + 0.05f)) && 
+			} else if ((brow_r_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_r_handle->pos.x+brow_r_handle->size.x + 0.05f)) &&
 				(brow_r_handle->pos.y  - 0.05f <= adj_y  && adj_y <= brow_r_handle->pos.y+brow_r_handle->size.y + 0.05f)) {
 				brow_r_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
-				
+
 				eye_handle->pos = glm::vec2(0.475f, 0.6f);
 				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
 				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
-			} else if ((mouth_handle->pos.x - 0.05f <= adj_x  && adj_x <= (mouth_handle->pos.x+mouth_handle->size.x + 0.05f)) && 
+			} else if ((mouth_handle->pos.x - 0.05f <= adj_x  && adj_x <= (mouth_handle->pos.x+mouth_handle->size.x + 0.05f)) &&
 				(mouth_handle->pos.y  - 0.05f <= adj_y  && adj_y <= mouth_handle->pos.y+mouth_handle->size.y + 0.05f)) {
 				mouth_handle->on_mouse_move(glm::vec2(0.5f, adj_y));
-				
+
 				eye_handle->pos = glm::vec2(0.475f, 0.6f);
 				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
 				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
 			}
-			// if ((test_box->pos.x - 0.05f <= adj_x  && adj_x <= (test_box->pos.x+test_box->size.x + 0.05f)) && 
+			// if ((test_box->pos.x - 0.05f <= adj_x  && adj_x <= (test_box->pos.x+test_box->size.x + 0.05f)) &&
 			// 	(test_box->pos.y  - 0.05f <= adj_y  && adj_y <= test_box->pos.y+test_box->size.y + 0.05f)) {
 
 			// }
@@ -376,7 +384,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		}
 		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
 			// spot_spin += 5.0f * evt.motion.xrel / float(window_size.x);
-			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) && 
+			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) &&
 				(eye_handle->pos.y  - 0.05f <= adj_y  && adj_y <= eye_handle->pos.y+eye_handle->size.y + 0.05f)) {
 				eye_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
 			}
@@ -395,16 +403,59 @@ void GameMode::update(float elapsed) {
 	static float timer = 0;
 	timer += elapsed;
 
-	// weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
-	// weights[1] = 1.f - weights[0];
-	// weights[2] = 1.f - weights[0];
-
-	// for(int i = 2; i < weights.size(); ++i)
-	// 	weights[i] = 0;
-	// weights[1] = 0.0f;
 	suzanne_object->transform->position.z = 1;
 	suzanne_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
 	face->recalculate_mesh_data(weights);
+
+    //TODO
+    /** state logic **/
+    if (state == WAIT_FOR_INPUT) {
+        //display text
+        if (!did_happy) {
+            happy = true;
+            sad = false;
+            gg = false;
+        } else {
+            happy = false;
+            sad = true;
+            gg = false;
+        }
+        if (posedge_clock == 1) {
+            //start timer
+            t0 = Time::now();
+            posedge_clock = 0;
+        } else {
+            t1 = Time::now();
+            fsec fs = t1 - t0;
+            if (fs.count() >= 7) {
+                state = CHECK;
+                posedge_clock = 1;
+            }
+        }
+    } else if (state == CHECK) {
+        happy = false;
+        sad = false;
+        gg = true;
+        did_happy = !did_happy;
+        //check if theyre right, if they do display text
+        //TODO erm actually do something if input is wrong
+        //if wrong go to game over
+        if (posedge_clock == 1) {
+            //start timer
+            t0 = Time::now();
+            posedge_clock = 0;
+        } else {
+            t1 = Time::now();
+            fsec fs = t1 - t0;
+            if (fs.count() >= 3) {
+                state = WAIT_FOR_INPUT;
+                posedge_clock = 1;
+            }
+        }
+
+    } else if (state == GAME_OVER) {
+
+    }
 }
 
 //GameMode will render to some offscreen framebuffer(s).
@@ -602,6 +653,17 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	// font_times->screen_dim = drawable_size;
 	// font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
 
+    //TODO: hacky garbage
+    if (happy) {
+        std::string str1 = "Look happy";
+	     font_times->draw_ascii_string(str1.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    } else if (sad) {
+        std::string str2 = "Look sad";
+	    font_times->draw_ascii_string(str2.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    } else if (gg) {
+        std::string str3 = "Good job";
+	    font_times->draw_ascii_string(str3.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    }
 	eye_handle->draw(drawable_size);
 	brow_l_handle->draw(drawable_size);
 	brow_r_handle->draw(drawable_size);
