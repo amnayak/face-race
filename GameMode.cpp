@@ -279,6 +279,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 GameMode::GameMode() {
 	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
 
+	eye_handle = new UIBox(glm::vec2(0.475f, 0.6f), glm::vec2(0.05f, 0.05f), glm::u8vec4(255, 255, 255, 100));
+	brow_l_handle = new UIBox(glm::vec2(0.30f, 0.7f), glm::vec2(0.05f, 0.05f), glm::u8vec4(255, 155, 155, 100));
+	brow_r_handle = new UIBox(glm::vec2(0.65f, 0.7f), glm::vec2(0.05f, 0.05f), glm::u8vec4(155, 155, 255, 100));
+	mouth_handle = new UIBox(glm::vec2(0.475f, 0.2f), glm::vec2(0.05f, 0.05f), glm::u8vec4(155, 255, 155, 100));
+
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x)
 		weights[x] = 0.f;
@@ -287,6 +292,8 @@ GameMode::GameMode() {
 		weights[face->frame_map.at("Basis").index] = 1.f;
 	else
 		weights[0] = 1.f;
+	weights[BASIS] = 1.f;
+	weights[6] = 0.f;
 }
 
 GameMode::~GameMode() {
@@ -313,13 +320,66 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		return true;
 	}
 
+	float eye_r_factor = std::max (std::min ((0.5f - eye_handle->pos.x) / 0.5f , 1.0f), 0.0f);
+	float eye_l_factor = std::max (std::max ((eye_handle->pos.x - 0.5f) / 0.5f , 0.0f), 0.0f);
+	weights[EYE_LOOK_R] = eye_r_factor;
+	weights[EYE_LOOK_L] = eye_l_factor;
+
+	float brow_l_factor = std::min(std::max((brow_l_handle->pos.y - 0.7f)/0.3f, 0.0f), 1.0f);
+	float brow_r_factor = std::min(std::max((brow_r_handle->pos.y - 0.7f)/0.3f, 0.0f), 1.0f);
+	weights[BROW_R_UP] = brow_l_factor;
+	weights[BROW_L_UP] = brow_r_factor;
+
+	float mouth_factor = std::max (std::min ((0.2f - mouth_handle->pos.y) / 0.2f , 1.0f), 0.0f);
+	weights[MOUTH_OPEN] = mouth_factor;
+	weights[BASIS] = 1.0f - eye_r_factor - eye_l_factor - brow_r_factor - brow_l_factor - mouth_factor;
 	if (evt.type == SDL_MOUSEMOTION) {
+		float adj_x = evt.motion.x / (float)window_size.x; 
+		float adj_y = ((float)window_size.y - evt.motion.y)/(float)window_size.y;
+
 		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-			camera_spin += 5.0f * evt.motion.xrel / float(window_size.x);
+			// camera_spin += 5.0f * evt.motion.xrel / float(window_size.x);
+			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) && 
+				(eye_handle->pos.y  - 0.05f <= adj_y  && adj_y <= eye_handle->pos.y+eye_handle->size.y + 0.05f)) {
+				eye_handle->on_mouse_move(glm::vec2(adj_x, 0.6f));
+				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
+				brow_r_handle->pos = glm::vec2(0.65f, 0.7f);
+				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
+			} else if ((brow_l_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_l_handle->pos.x+brow_l_handle->size.x + 0.05f)) && 
+				(brow_l_handle->pos.y  - 0.05f <= adj_y  && adj_y <= brow_l_handle->pos.y+brow_l_handle->size.y + 0.05f)) {
+				brow_l_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
+				
+				eye_handle->pos = glm::vec2(0.475f, 0.6f);
+				brow_r_handle->pos = glm::vec2(0.65f, 0.7f);
+				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
+			} else if ((brow_r_handle->pos.x - 0.05f <= adj_x  && adj_x <= (brow_r_handle->pos.x+brow_r_handle->size.x + 0.05f)) && 
+				(brow_r_handle->pos.y  - 0.05f <= adj_y  && adj_y <= brow_r_handle->pos.y+brow_r_handle->size.y + 0.05f)) {
+				brow_r_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
+				
+				eye_handle->pos = glm::vec2(0.475f, 0.6f);
+				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
+				mouth_handle->pos = glm::vec2(0.475f, 0.2f);
+			} else if ((mouth_handle->pos.x - 0.05f <= adj_x  && adj_x <= (mouth_handle->pos.x+mouth_handle->size.x + 0.05f)) && 
+				(mouth_handle->pos.y  - 0.05f <= adj_y  && adj_y <= mouth_handle->pos.y+mouth_handle->size.y + 0.05f)) {
+				mouth_handle->on_mouse_move(glm::vec2(0.5f, adj_y));
+				
+				eye_handle->pos = glm::vec2(0.475f, 0.6f);
+				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
+				brow_l_handle->pos = glm::vec2(0.30f, 0.7f);
+			}
+			// if ((test_box->pos.x - 0.05f <= adj_x  && adj_x <= (test_box->pos.x+test_box->size.x + 0.05f)) && 
+			// 	(test_box->pos.y  - 0.05f <= adj_y  && adj_y <= test_box->pos.y+test_box->size.y + 0.05f)) {
+
+			// }
+
 			return true;
 		}
 		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-			spot_spin += 5.0f * evt.motion.xrel / float(window_size.x);
+			// spot_spin += 5.0f * evt.motion.xrel / float(window_size.x);
+			if ((eye_handle->pos.x - 0.05f <= adj_x  && adj_x <= (eye_handle->pos.x+eye_handle->size.x + 0.05f)) && 
+				(eye_handle->pos.y  - 0.05f <= adj_y  && adj_y <= eye_handle->pos.y+eye_handle->size.y + 0.05f)) {
+				eye_handle->on_mouse_move(glm::vec2(adj_x, adj_y));
+			}
 			return true;
 		}
 
@@ -335,11 +395,13 @@ void GameMode::update(float elapsed) {
 	static float timer = 0;
 	timer += elapsed;
 
-	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
-	weights[1] = 1.f - weights[0];
-	for(int i = 2; i < weights.size(); ++i)
-		weights[i] = 0;
+	// weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
+	// weights[1] = 1.f - weights[0];
+	// weights[2] = 1.f - weights[0];
 
+	// for(int i = 2; i < weights.size(); ++i)
+	// 	weights[i] = 0;
+	// weights[1] = 0.0f;
 	suzanne_object->transform->position.z = 1;
 	suzanne_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
 	face->recalculate_mesh_data(weights);
@@ -537,8 +599,13 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	}
 	ss << "]";
 
-	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
+	// font_times->screen_dim = drawable_size;
+	// font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
+
+	eye_handle->draw(drawable_size);
+	brow_l_handle->draw(drawable_size);
+	brow_r_handle->draw(drawable_size);
+	mouth_handle->draw(drawable_size);
 	// font_arial->screen_dim = drawable_size;
 	// font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
 

@@ -82,6 +82,7 @@ CLIENT_NAMES =
 	draw_text
 	Sound
 	Font
+	UIElement
 	;
 
 if $(OS) = NT {
