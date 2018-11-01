@@ -328,19 +328,23 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		return true;
 	}
 
+	auto idx_of = [&](std::string name){
+		return face->frame_map[name].index;
+	};
+
 	float eye_r_factor = std::max (std::min ((0.5f - eye_handle->pos.x) / 0.5f , 1.0f), 0.0f);
 	float eye_l_factor = std::max (std::max ((eye_handle->pos.x - 0.5f) / 0.5f , 0.0f), 0.0f);
-	weights[EYE_LOOK_R] = eye_r_factor;
-	weights[EYE_LOOK_L] = eye_l_factor;
+	weights[idx_of("look_right")] = eye_r_factor;
+	weights[idx_of("look_left")] = eye_l_factor;
 
 	float brow_l_factor = std::min(std::max((brow_l_handle->pos.y - 0.7f)/0.3f, 0.0f), 1.0f);
 	float brow_r_factor = std::min(std::max((brow_r_handle->pos.y - 0.7f)/0.3f, 0.0f), 1.0f);
-	weights[BROW_R_UP] = brow_l_factor;
-	weights[BROW_L_UP] = brow_r_factor;
+	weights[idx_of("brow_up_R")] = brow_l_factor;
+	weights[idx_of("brow_up_L")] = brow_r_factor;
 
 	float mouth_factor = std::max (std::min ((0.2f - mouth_handle->pos.y) / 0.2f , 1.0f), 0.0f);
-	weights[MOUTH_OPEN] = mouth_factor;
-	weights[BASIS] = 1.0f - eye_r_factor - eye_l_factor - brow_r_factor - brow_l_factor - mouth_factor;
+	weights[idx_of("mouth_open")] = mouth_factor;
+	weights[idx_of("Basis")] = 1.0f - eye_r_factor - eye_l_factor - brow_r_factor - brow_l_factor - mouth_factor;
 	if (evt.type == SDL_MOUSEMOTION) {
 		float adj_x = evt.motion.x / (float)window_size.x;
 		float adj_y = ((float)window_size.y - evt.motion.y)/(float)window_size.y;
@@ -643,15 +647,14 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glDisable(GL_DEPTH_TEST);
 
 	std::ostringstream ss;
-	ss << "Weights: [";
+	ss << "Weights: [\n";
 	for(int x = 0; x < weights.size(); ++x) {
-		if(x != 0) ss << ", ";
-		ss << weights[x];
+		ss << face->key_frames[x].name << ": " << weights[x] << "\n";
 	}
 	ss << "]";
 
-	// font_times->screen_dim = drawable_size;
-	// font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
+	font_times->screen_dim = drawable_size;
+	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.1f, 0.8f), 32, 0.8f);
 
     //TODO: hacky garbage
     if (happy) {

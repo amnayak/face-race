@@ -314,7 +314,7 @@ void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, flo
 		if(cur) {
 			adv = cur->xadvance * scale / screen_dim.x;
 		}
-		if(width && pos_in_line + adv > width) {
+		if(*text == '\n' || (width && pos_in_line + adv > width)) {
 			pos.x = og_pos.x;
 			pos.y -= (float)render_info.line_height * scale / screen_dim.y;
 			pos_in_line = 0;
@@ -328,7 +328,7 @@ void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, flo
 		}
 
 		if(prev)
-			pos.x += (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] / screen_dim.x;
+			pos.x += (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] * scale / screen_dim.x;
 		if(!printed && *text != ' ' && prev)
 			std::cout << "   kerning w/ " << prev << ": " << kerning[id_pair(prev, *text)] << std::endl;
 		prev = *text;

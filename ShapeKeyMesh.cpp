@@ -138,7 +138,7 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         } else {
             VertexGroup &vgroup = vertex_groups[key_frames[i].vgroup_mask];
             for (uint32_t cur = vgroup.start_index; cur <= vgroup.end_index; ++cur) {
-                apply_key(i, vgroups_buf[cur]);
+                apply_key(i, vgroups_buf[cur - 1]);
             }
         }   
     }

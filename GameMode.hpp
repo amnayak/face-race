@@ -13,26 +13,6 @@
 
 #include <vector>
 
-#define BASIS			0
-#define EYE_DOWN		1
-#define EYE_UP			12
-#define EYE_LOOK_R		5
-#define EYE_LOOK_L		10
-
-#define BROW_L_UP		13
-#define BROW_R_UP		2
-#define BROW_L_DWN		8
-#define BROW_R_DWN		0xF
-
-// eyelids are getting weird contributions, check mesh later
-#define EYE_L_CLOSE		3
-#define EYE_R_CLOSE		9
-
-#define MOUTH_L_UP		4
-#define MOUTH_R_UP		11
-#define MOUTH_L_DWN		0x0F
-#define MOUTH_R_DWN		7
-#define MOUTH_OPEN		15
 // The 'GameMode' mode is the main gameplay mode:
 
 struct GameMode : public Mode {
