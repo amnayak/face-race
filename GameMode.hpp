@@ -2,6 +2,7 @@
 
 #include "Mode.hpp"
 #include "ShapeKeyMesh.hpp"
+#include "UIElement.hpp"
 
 #include "MeshBuffer.hpp"
 #include "GL.hpp"
@@ -34,4 +35,6 @@ struct GameMode : public Mode {
 
 	ShapeKeyMesh *face;
 	std::vector<float> weights;
+
+	UIBox *test_box;
 };

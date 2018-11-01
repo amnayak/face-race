@@ -279,6 +279,8 @@ Load< Scene > scene(LoadTagDefault, [](){
 GameMode::GameMode() {
 	face = new ShapeKeyMesh("suzanne.keys", suzanne_mesh); //TODO remember to destroy
 
+	test_box = new UIBox(glm::vec2(0.75f, 0.5f), glm::vec2(0.05f, 0.05f), glm::u8vec4(0, 255, 255, 255));
+
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x)
 		weights[x] = 0.f;
@@ -313,16 +315,30 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		return true;
 	}
 
-	if (evt.type == SDL_MOUSEMOTION) {
-		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-			camera_spin += 5.0f * evt.motion.xrel / float(window_size.x);
-			return true;
-		}
-		if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-			spot_spin += 5.0f * evt.motion.xrel / float(window_size.x);
-			return true;
-		}
+	// example using box to pull weights
+	float factor = std::max(0.0f, (test_box->pos.x - 0.5f)) / 0.5f;
 
+	weights[1] = factor;
+	weights[0] = 1.0f - factor;
+
+	if (evt.type == SDL_MOUSEMOTION) {
+		float adj_x = evt.motion.x / (float)window_size.x; 
+		float adj_y = ((float)window_size.y - evt.motion.y)/(float)window_size.y;
+		// x and y on the 0 - 1 plane from the bottom left
+
+		// in theory, we'd go through an array of all our UI elements and check individually.
+		if ((test_box->pos.x - 0.05f <= adj_x  && adj_x <= (test_box->pos.x+test_box->size.x + 0.05f)) && 
+			(test_box->pos.y  - 0.05f <= adj_y  && adj_y <= test_box->pos.y+test_box->size.y + 0.05f)){
+			if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+				test_box->on_mouse_move(glm::vec2(adj_x, adj_y));
+				return true;
+			}
+			if (evt.motion.state & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+				test_box->on_mouse_move(glm::vec2(adj_x, adj_y));
+				return true;
+			}
+			
+		}
 	}
 
 	return false;
@@ -335,8 +351,8 @@ void GameMode::update(float elapsed) {
 	static float timer = 0;
 	timer += elapsed;
 
-	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
-	weights[1] = 1.f - weights[0];
+	// weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
+	// weights[1] = 1.f - weights[0];
 
 	suzanne_object->transform->position.z = 2;
 	face->recalculate_mesh_data(weights);
@@ -538,6 +554,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
 	// font_arial->screen_dim = drawable_size;
 	// font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
-
+	test_box->draw(drawable_size);
 	glEnable(GL_DEPTH_TEST);
 }
