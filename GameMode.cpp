@@ -104,7 +104,7 @@ Load< GLuint > blur_program(LoadTagDefault, [](){
 		"void main() {\n"
 		"	vec2 at = (gl_FragCoord.xy - 0.5 * textureSize(tex, 0)) / textureSize(tex, 0).y;\n"
 		//make blur amount more near the edges and less in the middle:
-		"	float amt = (0.01 * textureSize(tex,0).y) * max(0.0,(length(at) - 0.3)/0.2);\n"
+		"	float amt = (0.01 * textureSize(tex,0).y) * max(0.0,(length(at) - 0.5)/0.1);\n"
 		//pick a vector to move in for blur using function inspired by:
 		//https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner
 		"	vec2 ofs = amt * normalize(vec2(\n"
@@ -292,24 +292,17 @@ GameMode::GameMode() {
 GameMode::~GameMode() {
 }
 
+static int cur_weight = 0;
+
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 	//ignore any keys that are the result of automatic key repeat:
-	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
-		//TODO: decrease basis weight in a better way.. [multiple shape keys]
-		if(weights[0] >= 0.1f){
-			weights[0] -= 0.1f;
-			weights[1] += 0.1f;
-		}
-
+	if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+		cur_weight = (cur_weight + 1) % (weights.size() - 1);
 		return true;
 	}
 
-	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_R) {
-		//TODO: increase basis weight in a better way.. [multiple shape keys]
-		if(weights[0] <= 0.9f){
-			weights[0] += 0.1f;
-			weights[1] -= 0.1f;
-		}
+	if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_LEFT) {
+		cur_weight = (cur_weight + (weights.size() - 1) - 1) % (weights.size() - 1);
 		return true;
 	}
 
@@ -335,12 +328,14 @@ void GameMode::update(float elapsed) {
 	static float timer = 0;
 	timer += elapsed;
 
-	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
-	weights[1] = 1.f - weights[0];
-	for(int i = 2; i < weights.size(); ++i)
+	for(int i = 0; i < weights.size(); ++i)
 		weights[i] = 0;
+	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
+	weights[cur_weight + 1] = (1.f - weights[0]) / 2.f;
+	weights[(cur_weight + 1) % weights.size() + 1] = (1.f - weights[0]) / 2.f;
 
 	suzanne_object->transform->position.z = 1;
+	suzanne_object->transform->position.y = -1;
 	suzanne_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
 	face->recalculate_mesh_data(weights);
 }
