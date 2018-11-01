@@ -33,7 +33,7 @@ Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
 	std::vector<MeshBuffer *> *ret = new std::vector<MeshBuffer *>;
 
 	ret->push_back(new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW));
-	suzanne_mesh = new MeshBuffer(data_path("suzanne.pnct"), GL_DYNAMIC_DRAW);
+	suzanne_mesh = new MeshBuffer(data_path("face.pnct"), GL_DYNAMIC_DRAW);
 	ret->push_back(suzanne_mesh);
 
 	unsigned short idx = 0;
@@ -201,7 +201,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 	std::vector<std::string const> names;
 	names.push_back(data_path("vignette.scene"));
-	names.push_back(data_path("suzanne.scene"));
+	names.push_back(data_path("face.scene"));
 
 	//load transform hierarchy:
 	ret->load(names, [&](Scene &s, Scene::Transform *t, std::string const &m){
@@ -212,7 +212,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *wood_tex;
 		} else if (t->name == "Pedestal") {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *marble_tex;
-		} else if (t->name == "suzanne") {
+		} else if (t->name == "face") {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
 			suzanne_object = obj;
 		} else {
@@ -277,7 +277,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 });
 
 GameMode::GameMode() {
-	face = new ShapeKeyMesh("suzanne.keys", suzanne_mesh); //TODO remember to destroy
+	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
 
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x)
@@ -337,8 +337,11 @@ void GameMode::update(float elapsed) {
 
 	weights[0] = (SDL_sinf(timer) + 1.f) / 2.f;
 	weights[1] = 1.f - weights[0];
+	for(int i = 2; i < weights.size(); ++i)
+		weights[i] = 0;
 
-	suzanne_object->transform->position.z = 2;
+	suzanne_object->transform->position.z = 1;
+	suzanne_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
 	face->recalculate_mesh_data(weights);
 }
 

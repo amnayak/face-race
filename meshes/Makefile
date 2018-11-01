@@ -19,6 +19,9 @@ all : \
 	$(DIST)/suzanne.pnct \
 	$(DIST)/suzanne.keys \
 	$(DIST)/suzanne.scene \
+	$(DIST)/face.pnct \
+	$(DIST)/face.keys \
+	$(DIST)/face.scene
 
 
 $(DIST)/%.p : %.blend export-meshes.py

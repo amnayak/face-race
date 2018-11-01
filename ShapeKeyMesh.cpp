@@ -65,7 +65,7 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
         if (!(entry.name_begin <= entry.name_end && entry.name_end <= strings_buf.size()))
             throw std::runtime_error("index entry has out-of-range name begin/end");
 
-        if (!(0 <= entry.vertex_end && entry.vertex_end < cur_mesh.count))
+        if (!(0 <= entry.vertex_end && entry.vertex_end <= vgroups_buf.size()))
             throw std::runtime_error("index entry has out-of-range vertex start/count");
 
         std::string name(&strings_buf[0] + entry.name_begin, &strings_buf[0] + entry.name_end);
@@ -130,7 +130,7 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         norms[v] += weights[i];
     };
     for(int i = 0; i < key_frames.size(); i++) {
-        if(key_frames[i].vgroup_mask >= vertex_groups.size()) {
+        if(key_frames[i].has_vgroup) {
             // There is no vertex group associated with this shape key.
             // So just apply this shape to all vertices
             for (int v = 0; v < vcount; v++)
