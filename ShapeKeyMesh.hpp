@@ -23,6 +23,7 @@ public:
         unsigned short vgroup_mask;
         bool has_vgroup;
 
+        ShapeKey() : name(""), start_vertex(0), index(0), vgroup_mask(0), has_vgroup(false) { }
         ShapeKey(std::string name, uint32_t start_vertex, unsigned short index, unsigned short vgroup_mask, bool has_vgroup) : name(name), start_vertex(start_vertex), index(index), vgroup_mask(vgroup_mask), has_vgroup(has_vgroup) { }
     };
 
