@@ -1,4 +1,5 @@
 #pragma once
+#include "Dialogue.hpp"
 
 class DialoguePlayer {
     public:
@@ -12,7 +13,7 @@ class DialoguePlayer {
 
     uint32_t line_number; //line of dialogue you are on,
                      //indexes into dialogue.lines
-    uint32_t choice; //choice player chooses within the last
+    uint32_t choice_index; //choice player chooses within the last
                      //played dialogue
     bool outstanding_choice; //current line has an outstanding
                              //choice
@@ -21,7 +22,7 @@ class DialoguePlayer {
     //outstanding choice to be made, increment and play next
     //line. If there is one, play the same dialogue.
     //If player has made a choice, jump to correct line.
-    string playDialogue();
+    Dialogue::Line playDialogue();
 
     //inputs player choice
     bool makeChoice(uint32_t c);

@@ -1,16 +1,16 @@
 #include "Dialogue.hpp"
 
-static bool DEBUG = true;
+//static bool DEBUG = true;
 
 Dialogue::Dialogue() {
-
+    loadTestDialogue();
 }
 
-void loadDialogue(string filename) {
+void Dialogue::loadDialogue(std::string filename) {
     //TODO parse dialog from a file
 }
 
-void loadTestDialogue() {
+void Dialogue::loadTestDialogue() {
     Line first;
     Line outcomeA;
     Line outcomeB;

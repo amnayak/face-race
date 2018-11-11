@@ -1,4 +1,6 @@
 #pragma once
+#include <string>
+#include <vector>
 
 class Dialogue {
     public:
@@ -6,19 +8,19 @@ class Dialogue {
         ~Dialogue();
 
     struct Choice {
-        string text;
+        std::string text;
         uint32_t goto_index; //index into Lines vector
     };
 
     struct Line {
-        string text;
+        std::string text;
         std::vector <Choice> choices;
     };
 
     std::vector <Line> lines;
 
     //populates lines vector from file
-    void loadDialogue (string filename);
+    void loadDialogue (std::string filename);
 
     void loadTestDialogue ();
 
