@@ -16,7 +16,7 @@
 // The 'GameMode' mode is the main gameplay mode:
 
 struct GameMode : public Mode {
-	GameMode();
+	GameMode(glm::uvec2 const& window_size);
 	virtual ~GameMode();
 
 	//handle_event is called when new mouse or keyboard events are received:
@@ -35,8 +35,8 @@ struct GameMode : public Mode {
 
 	ShapeKeyMesh *face;
 	std::vector<float> weights;
-	UIBox *eye_handle;
-	UIBox *brow_l_handle;
-	UIBox *brow_r_handle;
-	UIBox *mouth_handle;
+
+	glm::uvec2 window_size;
+
+	std::vector<UIElement *> ui_elements;
 };

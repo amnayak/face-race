@@ -42,9 +42,12 @@ public:
     std::vector <ShapeKey> key_frames;
     std::vector <VertexGroup> vertex_groups;
 
-    /* Map of shape keys by their name */
+    /* Map of shape keys by their name (NOT including reference) */
     std::map< std::string, ShapeKey > frame_map;
     std::map< std::string, VertexGroup > group_map;
+
+    /* Reference shape key */
+    ShapeKey reference_key;
 
     /* recalculates linear combo, and stores into data_to_write */
     void recalculate_mesh_data(const std::vector <float> &weights);
@@ -63,10 +66,7 @@ private:
     /* Generic data to write.  Packed with P/PN/PNC/PNCTVertex based
      * on mesh->draw_mode.
      */
-    std::vector <char> data_to_write;
-    /* Invariants:
-     * 1. norms.size() == number of verts in mesh
-     * 2. norms[i] = normalization factor after adding all possible weights (including vgroup mask)
-     */
+    std::vector <char> data_to_write;    
+
     std::vector <float> norms;
 };

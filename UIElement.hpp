@@ -2,52 +2,98 @@
 
 #include <string>
 #include <functional>
+#include <vector>
 #include <array>
 
 #include <glm/glm.hpp>
+#include <SDL.h>
 #include "GL.hpp"
 
-#define GL_SILENCE_DEPRECATION()
+// Shader Program
+struct UIProgram {
+	GLuint program;
+
+	GLuint u_texture;
+	GLuint u_projTrans;
+	GLuint u_color;
+
+	GLuint in_position;
+	GLuint in_texcoord0;
+};
+
+enum HozAnchor { Left, Center, Right };
+enum VrtAnchor { Top, Middle, Bottom};
+
 struct UIElement {
 public:
+	std::function<void(glm::vec2 const&, bool)> onHover;
+	std::function<void(glm::vec2 const&, bool, int)> onMouseDown;
+	std::function<void(glm::vec2 const&, bool, int)> onMouseUp;
+	std::function<void(glm::vec2 const&, glm::vec2 const&)> onResize;
 
-	std::function<void(glm::vec2)> onHover;
-	std::function<void(glm::vec2, int)> onMouseDown;
-	std::function<void(glm::vec2, int)> onMouseUp;
-	std::function<void(glm::vec2, int)> onMouse;
+	glm::vec2 pos; // center
+	glm::vec2 size; // dims
 
-	virtual void draw(glm::uvec2 const& drawable_size){};
-	virtual void update(float elapsed){};
+	UIElement(glm::vec2 pos, glm::vec2 size) : pos(pos), size(size) { }
 
-	GLuint vbo;
-	GLuint vao;
-	bool smooth = false;
+	virtual void handle_event(SDL_Event const &evt, glm::uvec2 const &window_size);
+
+	virtual void draw(glm::uvec2 const& window_size, glm::mat4 const& view) = 0;
+	virtual void update(float elapsed) { }
+
+	static UIElement *create_slider(
+		glm::vec2 const& center,
+		float width,
+		float bar_thickness,
+		float btn_thickness,
+		std::function<void(float)> value_changed,
+		float initial,
+		HozAnchor hoz = Left,
+    	VrtAnchor vrt = Top);
+
+protected:
+	glm::uvec2 prev_window_size;
 };
 
-struct UILabel : UIElement {
+struct UIGroupElement : public UIElement {
 public:
-	glm::vec2 center;
-	glm::uvec2 dim;
+	const std::vector<UIElement *> children;
+
+	UIGroupElement(const std::vector<UIElement *> children, glm::vec2 pos, glm::vec2 size) : UIElement(pos, size), children(children) {
+		onResize = [&children](glm::vec2 const &s1, glm::vec2 const &s2){
+			for(UIElement *cur : children)
+				cur->onResize(s1, s2);
+		};
+	}
+
+	virtual void handle_event(SDL_Event const &evt, glm::uvec2 const &window_size);
+	void draw(glm::uvec2 const& window_size, glm::mat4 const& view);
+	void update(float elapsed);
+};
+
+struct UILabel : public UIElement {
+public:
 	std::string text;
 
-	UILabel(glm::vec2 const& center, glm::uvec2 const& dim, std::string const& text) : center(center), dim(dim), text(text) {}
+	UILabel(glm::vec2 const& pos, glm::uvec2 const& size, std::string const& text) : UIElement(pos, size), text(text) {}
+
+	void draw(glm::uvec2 const& window_size, glm::mat4 const& view);
 };
 
-struct UIBox : UIElement {
+struct UIBox : public UIElement {
 public:
-	glm::vec2 pos;
-	glm::vec2 size;
-	glm::u8vec4 color;
+	glm::vec4 color = glm::vec4(1,1,1,0.7f);
 	bool active = false;
 
-	UIBox(glm::vec2 p, glm::vec2 s, glm::u8vec4 c);
+	UIBox(glm::vec2 pos, glm::vec2 size, glm::vec4 color);
 
-	void draw(glm::uvec2 const& drawable_size);
-	void on_mouse_move(glm::vec2 mouse);
+	void draw(glm::uvec2 const& window_size, glm::mat4 const& view);
 
+private:
+	GLuint vbo;
+	GLuint vao;
 	struct button_vertex {
-		glm::vec3 position;
-		glm::u8vec4 color;
+		glm::vec2 position;
 		glm::vec2 texcoord;
 	};
 	std::array<button_vertex, 6> verts_buf;

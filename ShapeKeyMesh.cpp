@@ -26,22 +26,32 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
     std::vector<char> strings_buf;
     struct SKIndexEntry {
         uint32_t name_begin, name_end;
-        uint32_t vgroup;
+        uint32_t vgroup; // 0 => No vertex group, 1 => First vertex group(idx 0), 2 => Second (idx 1)...
         uint32_t vertex_begin, vertex_end;
     };
     struct IndexEntry {
         uint32_t name_begin, name_end;
         uint32_t vertex_begin, vertex_end;
     };
+    struct OrdStringEntry {
+        uint32_t name_begin, name_end;
+    };
     std::vector<SKIndexEntry> idx_buf;
     std::vector<IndexEntry> gidx_buf;
+    std::vector<OrdStringEntry> ridx_buf;
 
     read_chunk(file, "str0", &strings_buf);
     read_chunk(file, "idx0", &idx_buf);
     read_chunk(file, "grp0", &vgroups_buf);
     read_chunk(file, "idx1", &gidx_buf);
+    read_chunk(file, "bas0", &ridx_buf);
+
+    if(ridx_buf.size() != 1)
+        throw std::runtime_error("incorrect bas0 size");
 
     MeshBuffer::Mesh& cur_mesh = (*mesh->meshes.begin()).second;
+
+    std::string ref_key_name(&strings_buf[0] + ridx_buf[0].name_begin, &strings_buf[0] + ridx_buf[0].name_end);
 
     for (auto const &entry : idx_buf) {
         if (!(entry.name_begin <= entry.name_end && entry.name_end <= strings_buf.size()))
@@ -57,9 +67,19 @@ ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(
         std::string name(&strings_buf[0] + entry.name_begin, &strings_buf[0] + entry.name_end);
         ShapeKey key(name, entry.vertex_begin, key_frames.size(), entry.vgroup - 1, entry.vgroup != 0);
 
-        key_frames.push_back(key);
-        frame_map.insert({name, key});
+        if(name == ref_key_name) {
+            reference_key.index = (unsigned short)(-1); // make it obvious idx is invalid
+            reference_key = key;
+        } else {
+            key_frames.push_back(key);
+            frame_map.insert({name, key});
+        }        
     }
+
+    if (ref_key_name != reference_key.name)
+        throw std::runtime_error("no reference key found");
+    if (reference_key.has_vgroup)
+        throw std::runtime_error("reference key has a vertex mask");
 
     for (auto const &entry : gidx_buf) {
         if (!(entry.name_begin <= entry.name_end && entry.name_end <= strings_buf.size()))
@@ -120,34 +140,42 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         *pos = glm::vec3(0,0,0);
     }
 
-    std::vector <float> norms;
     norms.resize(vcount);
+    for(int x = 0; x < norms.size(); ++x)
+        norms[x] = 0;
 
+    static bool p = true;
     auto apply_key = [&](int i, int v) {
         glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
-        *pos += vertex_buf[v + i * vcount] * weights[i];
+        *pos += vertex_buf[key_frames[i].start_vertex + v] * weights[i];
 
         norms[v] += weights[i];
     };
     for(int i = 0; i < key_frames.size(); i++) {
-        if(key_frames[i].has_vgroup) {
+        if(!key_frames[i].has_vgroup) {
             // There is no vertex group associated with this shape key.
             // So just apply this shape to all vertices
-            for (int v = 0; v < vcount; v++)
+            for (int v = 0; v < vcount; v++) {
                 apply_key(i, v);
+            }
         } else {
             VertexGroup &vgroup = vertex_groups[key_frames[i].vgroup_mask];
-            for (uint32_t cur = vgroup.start_index; cur <= vgroup.end_index; ++cur) {
-                apply_key(i, vgroups_buf[cur - 1]);
+            for (uint32_t cur = vgroup.start_index; cur < vgroup.end_index; ++cur) {
+                apply_key(i, vgroups_buf[cur]);
             }
-        }   
+        }  
     }
-    // Normalize everything to (0, 1) range
+    // Apply reference key for remaining range
     for (int v = 0; v < vcount; v++) {
         glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
-        if(norms[v] > 0.001f)
-            *pos /= norms[v];
+        // note, if norms[v] > 1 (not normalized), that's ok, 
+        // we actually WANT to "take away" (weight - 1) of the
+        // basis in that case.  If norms[v] < 1 then we assume
+        // that the user wants (1 - norms[v]) of the basis.
+        // For example, all weights = 0 => basis
+        *pos += (1.f - norms[v]) * vertex_buf[reference_key.start_vertex + v];
     }
 
+    p = false;
     mesh->update_vertex_data(data_to_write);
 }

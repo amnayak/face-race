@@ -20,11 +20,13 @@ if $(OS) = NT { #Windows
 } else if $(OS) = MACOSX { #MacOS
 	KIT_LIBS = kit-libs-osx ;
 	C++ = clang++ ;
+	OPTIM = -O0 ;
 	C++FLAGS =
 		-std=c++14 -g -Wall -Werror
 		-I$(KIT_LIBS)/libpng/include                           #libpng
 		-I$(KIT_LIBS)/glm/include                              #glm
 		`PATH=$(KIT_LIBS)/SDL2/bin:$PATH sdl2-config --cflags` #SDL2
+		-O0
 		;
 	LINK = clang++ ;
 	LINKFLAGS = -std=c++14 -g -Wall -Werror ;
@@ -41,6 +43,7 @@ if $(OS) = NT { #Windows
 		-I$(KIT_LIBS)/libpng/include                           #libpng
 		-I$(KIT_LIBS)/glm/include                              #glm
 		`PATH=$(KIT_LIBS)/SDL2/bin:$PATH sdl2-config --cflags` #SDL2
+		-O0
 		;
 	LINK = g++ ;
 	LINKFLAGS = -std=c++11 -g -Wall -Werror ;

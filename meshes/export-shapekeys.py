@@ -69,58 +69,40 @@ strings = b''
 # index gives offsets into the data (and names) for each shape key:
 index = b''
 
-print("Writing Shapekeys...")
-
-vertex_count = 0
-for obj in to_write:
-    name = obj.name
-    print("  " + name)
-
-    # record mesh name, start position and vertex count in the index:
-    name_begin = len(strings)
-    strings += bytes(name, "utf8")
-    name_end = len(strings)
-    index += struct.pack('I', name_begin)
-    index += struct.pack('I', name_end)
-
-    vgroup_idx = to_write_obj.vertex_groups.find(obj.vertex_group)
-    index += struct.pack('I', vgroup_idx + 1)  # add 1 so that 0 => none
-
-    index += struct.pack('I', vertex_count)  # vertex_begin
-    # ...count will be written below
-
-    for poly in to_write_mesh.polygons:
-        assert(len(poly.loop_indices) == 3)
-        for i in range(0, 3):
-            assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
-            loop = to_write_mesh.loops[poly.loop_indices[i]]
-            vertex = obj.data[loop.vertex_index]
-            for x in vertex.co:
-                data += struct.pack('f', x)
-
-    vertex_count += len(to_write_mesh.polygons) * 3
-    index += struct.pack('I', vertex_count)  # vertex_end
-
-# check that we wrote as much data as anticipated:
-assert(vertex_count * filetype.vertex_bytes == len(data))
-
-print("...Done.\n\nWriting Vertex Groups...")
-
 # groups contains the vertex group index data
 groups = b''
+
 # gindex contains the start/end/string indexes for each vertex group
 gindex = b''
 
 gvertex_count = 0
+vertex_count = 0
 
-all_groups = [[]] * (len(to_write_obj.vertex_groups))
-for v in to_write_mesh.vertices:
-    for grp in v.groups:
-        all_groups[grp.group].append(v.index)
+all_groups = [[] for x in range(len(to_write_obj.vertex_groups))]
+grp_count = [0] * (len(to_write_obj.vertex_groups))
+
+print("Writing Vertex Groups...")
+
+key_vertex_count = 0
+for poly in to_write_mesh.polygons:
+    assert(len(poly.loop_indices) == 3)
+    for i in range(0, 3):
+        assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
+        loop = to_write_mesh.loops[poly.loop_indices[i]]
+        for grp in to_write_mesh.vertices[loop.vertex_index].groups:
+            if grp.weight > 0.1: 
+                app = key_vertex_count + i
+                all_groups[grp.group].append(app)
+                grp_count[grp.group] = grp_count[grp.group] + 1
+    key_vertex_count += 3
+
+print(str(grp_count))
 
 for grp in to_write_obj.vertex_groups:
     name = grp.name
-    print("  " + name)
+    cur_grp = all_groups[grp.index]
+    print("  " + name + "[ size =",len(cur_grp),"]")
+    assert(len(cur_grp) == grp_count[grp.index])
 
     name_begin = len(strings)
     strings += bytes(name, "utf8")
@@ -135,6 +117,49 @@ for grp in to_write_obj.vertex_groups:
 
     gvertex_count += len(all_groups[grp.index])
     gindex += struct.pack('I', gvertex_count)  # index_end
+
+print("Vertex count: " + str(key_vertex_count))
+print("...Done.\n\nWriting Shapekeys...")
+
+for obj in to_write:
+    name = obj.name
+    print("  " + name)
+
+    # record mesh name, start position and vertex count in the index:
+    name_begin = len(strings)
+    strings += bytes(name, "utf8")
+    name_end = len(strings)
+    index += struct.pack('I', name_begin)
+    index += struct.pack('I', name_end)
+
+    vgroup_idx = to_write_obj.vertex_groups.find(obj.vertex_group)
+    # add 1 so that 0 => none (result of find is -1 if none found)
+    index += struct.pack('I', vgroup_idx + 1)
+
+    index += struct.pack('I', vertex_count)  # vertex_begin
+    # ...count will be written below
+
+    for poly in to_write_mesh.polygons:
+        assert(len(poly.loop_indices) == 3)
+        for i in range(0, 3):
+            assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
+            loop = to_write_mesh.loops[poly.loop_indices[i]]
+            vertex = obj.data[loop.vertex_index]
+            for x in vertex.co:
+                data += struct.pack('f', x)
+    vertex_count += 3*len(to_write_mesh.polygons)
+
+    index += struct.pack('I', vertex_count)  # vertex_end
+
+# check that we wrote as much data as anticipated:
+assert(vertex_count * filetype.vertex_bytes == len(data))
+
+rindex = b''
+ref_begin = len(strings)
+strings += bytes(to_write_mesh.shape_keys.reference_key.name, "utf8")
+ref_end = len(strings)
+rindex += struct.pack('I', ref_begin)
+rindex += struct.pack('I', ref_end)
 
 print("...Done.\n")
 
@@ -160,8 +185,12 @@ blob.write(groups)
 blob.write(struct.pack('4s', b'idx1'))  # type
 blob.write(struct.pack('I', len(gindex)))
 blob.write(gindex)
+# sixth chunk: indexes for name of basis shapekey
+blob.write(struct.pack('4s', b'bas0'))
+blob.write(struct.pack('I', len(rindex)))
+blob.write(rindex)
 
 wrote = blob.tell()
 blob.close()
 
-print("Wrote " + str(wrote) + " bytes [== " + str(len(data)+8) + " bytes of data + " + str(len(strings)+8) + " bytes of strings + " + str(len(index)+8) + " bytes of index + " + str(len(groups)+8) + " bytes of groups + " + str(len(gindex)+8) + " bytes of gindex] to '" + outfile + "'")
+print("Wrote " + str(wrote) + " bytes [== " + str(len(data)+8) + " bytes of data + " + str(len(strings)+8) + " bytes of strings + " + str(len(index)+8) + " bytes of index + " + str(len(groups)+8) + " bytes of groups + " + str(len(gindex)+8) + " bytes of gindex + " + str(len(rindex)+8) + " bytes of rindex] to '" + outfile + "'")

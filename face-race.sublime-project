@@ -4,7 +4,7 @@
 		{
 			"cmd":
 			[
-				"jam"
+				"jam -d x"
 			],
 			"name": "face-race",
 			"selector": "source.c++",
