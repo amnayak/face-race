@@ -37,6 +37,6 @@ struct GameMode : public Mode {
 	std::vector<float> weights;
 
 	glm::uvec2 window_size;
-
+	Scene::Object *cube = nullptr;
 	std::vector<UIElement *> ui_elements;
 };
