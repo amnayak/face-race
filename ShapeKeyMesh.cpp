@@ -1,16 +1,16 @@
 #include "ShapeKeyMesh.hpp"
 #include "read_chunk.hpp"
 #include "data_path.hpp"
+#include "gl_errors.hpp"
+#include "vertex_color_program.hpp"
+
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
 #include <set>
 #include <cstddef>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
-#include "gl_errors.hpp"
+
 #include <glm/gtc/type_ptr.hpp>
-#include "vertex_color_program.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
 ShapeKeyMesh::ShapeKeyMesh(std::string filename, MeshBuffer *const mesh) : mesh(mesh) {
@@ -102,14 +102,7 @@ ShapeKeyMesh::~ShapeKeyMesh() {
   //TODO
 }
 
-//recalculates the weighted linear combination of the vertices
-// and uploads to GPU
-void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
-    if(weights.size() != key_frames.size())
-        throw std::runtime_error("incorrect weights array length");
-
-    size_t sizeof_vertex;
-    size_t offsetof_pos;
+static inline void get_struct_info (MeshBuffer *const mesh, size_t &sizeof_vertex, size_t &offsetof_pos) {
     switch(mesh->format) {
         case P:
         sizeof_vertex = sizeof(PVertex);
@@ -128,6 +121,16 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         offsetof_pos = offsetof(PNCTVertex, Position);
         break;
     }
+}
+
+//recalculates the weighted linear combination of the vertices
+// and uploads to GPU
+void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
+    if(weights.size() != key_frames.size())
+        throw std::runtime_error("incorrect weights array length");
+
+    size_t sizeof_vertex, offsetof_pos;
+    get_struct_info(mesh, sizeof_vertex, offsetof_pos);
 
     size_t vcount = (*(mesh->meshes.begin())).second.count;
     assert(sizeof_vertex * vcount == mesh->data.size());
@@ -145,9 +148,11 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         norms[x] = 0;
 
     static bool p = true;
-    auto apply_key = [&](int i, int v) {
+    auto apply_key = [&, sizeof_vertex, offsetof_pos](int i, int v) {
         glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
         *pos += vertex_buf[key_frames[i].start_vertex + v] * weights[i];
+
+        //std::cout << vertex_buf[key_frames[i].start_vertex + v].x << " " << vertex_buf[key_frames[i].start_vertex + v].y << " " << vertex_buf[key_frames[i].start_vertex + v].z << std::endl;
 
         norms[v] += weights[i];
     };
@@ -173,9 +178,15 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         // basis in that case.  If norms[v] < 1 then we assume
         // that the user wants (1 - norms[v]) of the basis.
         // For example, all weights = 0 => basis
-        *pos += (1.f - norms[v]) * vertex_buf[reference_key.start_vertex + v];
+        *pos += (1.f - std::max(0.f, std::min(1.f ,norms[v]))) * vertex_buf[reference_key.start_vertex + v];
     }
 
     p = false;
     mesh->update_vertex_data(data_to_write);
+}
+
+glm::vec3 ShapeKeyMesh::get_vertex(uint32_t v) {
+    size_t sizeof_vertex, offsetof_pos;
+    get_struct_info(mesh, sizeof_vertex, offsetof_pos);
+    return *(glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
 }

@@ -90,7 +90,7 @@ for poly in to_write_mesh.polygons:
         assert(to_write_mesh.loops[poly.loop_indices[i]].vertex_index == poly.vertices[i])
         loop = to_write_mesh.loops[poly.loop_indices[i]]
         for grp in to_write_mesh.vertices[loop.vertex_index].groups:
-            if grp.weight > 0.1: 
+            if grp.weight > 0.1:
                 app = key_vertex_count + i
                 all_groups[grp.group].append(app)
                 grp_count[grp.group] = grp_count[grp.group] + 1

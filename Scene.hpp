@@ -2,6 +2,7 @@
 
 #include "GL.hpp"
 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -142,6 +143,9 @@ struct Scene {
 		float near = 0.01f; //near plane
 		//computed from the above:
 		glm::mat4 make_projection() const;
+
+		glm::vec3 generate_ray(glm::vec2 const& ss) const;
+		glm::vec2 world_to_clip(glm::vec3 const& ws) const;
 
 		//used by Scene to manage allocation:
 		Camera **alloc_prev_next = nullptr;

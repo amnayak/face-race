@@ -30,6 +30,12 @@ struct GameMode : public Mode {
 	//draw is called after update:
 	virtual void draw(glm::uvec2 const &drawable_size) override;
 
+	UIElement *create_shapekey_deformer(
+		float size_scr,
+		ShapeKeyMesh *mesh,
+		uint32_t vertex,
+		std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed);
+
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
 

@@ -1,6 +1,8 @@
 #include "Scene.hpp"
 #include "read_chunk.hpp"
 
+#define GLM_FORCE_SWIZZLE
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -111,6 +113,22 @@ glm::mat4 Scene::Lamp::make_projection() const {
 
 glm::mat4 Scene::Camera::make_projection() const {
 	return glm::infinitePerspective( fovy, aspect, near );
+}
+
+glm::vec3 Scene::Camera::generate_ray(const glm::vec2 &ss) const {
+	float tany = tan(fovy);
+	float tanx = tan(fovy * aspect);
+	float dist = sqrt(1 + tanx*tanx + tany*tany);
+
+	return glm::vec3(tanx*ss.x, tany*ss.y, 1) / dist;
+}
+
+glm::vec2 Scene::Camera::world_to_clip(const glm::vec3 &ws) const {
+	glm::mat4 world_to_camera = transform->make_world_to_local();
+	glm::mat4 w2c_mat = make_projection() * world_to_camera;
+	glm::vec4 clip = w2c_mat * glm::vec4(ws, 1);
+	clip /= clip.w;
+	return clip.xy();
 }
 
 //---------------------------

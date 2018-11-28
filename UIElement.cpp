@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <functional>
 
-static UIElement *ui_element_focused = nullptr;
+UIElement *UIElement::ui_element_focused = nullptr;
 
 Load < UIProgram > ui_program(LoadTagDefault, []() {
     UIProgram *ret = new UIProgram;
@@ -144,6 +144,12 @@ void UIElement::handle_event(SDL_Event const &e, glm::uvec2 const &window_size) 
         }
     };
 
+    if(prev_window_size != window_size) {
+        if(prev_window_size != glm::uvec2(0,0) && onResize) 
+            onResize(prev_window_size, window_size);
+        prev_window_size = window_size;
+    }
+    
     switch(e.type) {
         case SDL_MOUSEMOTION:
         if(onHover)
@@ -166,7 +172,7 @@ void UIElement::handle_event(SDL_Event const &e, glm::uvec2 const &window_size) 
                 btn_int(e.button.button));
         break;
         case SDL_WINDOWEVENT_RESIZED: 
-        if(onResize)
+        if(onResize) 
             onResize(prev_window_size, window_size);
         default:break;
 
@@ -192,13 +198,13 @@ void UIGroupElement::handle_event(SDL_Event const &evt, glm::uvec2 const &window
     for(UIElement *cur : children)
         cur->handle_event(e, window_size);
 
-    prev_window_size = window_size;
+    UIElement::handle_event(evt, window_size);
 }
 
 void UIGroupElement::draw(glm::uvec2 const& window_size, glm::mat4 const& view) {
     glm::mat4 viewnew = 
-            view 
-          * glm::translate(glm::mat4(1), glm::vec3(pos.x - size.x/2, pos.y - size.y/2, 0));
+            glm::translate(glm::mat4(1), glm::vec3(pos.x - size.x/2, pos.y - size.y/2, 0))
+          * view;
     for(UIElement *cur : children)
         cur->draw(window_size, viewnew);
 }
@@ -209,7 +215,7 @@ void UIGroupElement::update(float elapsed) {
 }
 
 UIElement *UIElement::create_slider(
-    glm::vec2 const& center,
+    glm::vec2 center,
     float width,
     float bar_thickness,
     float btn_thickness,
@@ -250,27 +256,30 @@ UIElement *UIElement::create_slider(
 
     UIElement *ret = (UIElement *)(new UIGroupElement(chld, center, glm::vec2(width, btn_thickness)));
     auto prev = ret->onResize;
-    ret->onResize = [hoz, vrt, &ret, prev](glm::vec2 const& old, glm::vec2 const& nxt) {
-        switch(hoz) {
-            case Left:
-            break;
-            case Right:
-            ret->pos.x += nxt.x - old.x;
-            break;
-            case Center:
-            ret->pos.x += (nxt.x - old.x)/2.f;
-            break;
+    ret->onResize = [hoz, vrt, ret, prev](glm::vec2 const& old, glm::vec2 const& nxt) {
+        if(old.x > 0.01 || old.y > 0.01 || nxt.x > 0.01 || nxt.y > 0.01) {
+            switch(hoz) {
+                case Left:
+                break;
+                case Right:
+                ret->pos.x += nxt.x - old.x;
+                break;
+                case Center:
+                ret->pos.x += (nxt.x - old.x)/2.f;
+                break;
+            }
+            switch(vrt) {
+                case Bottom:
+                break;
+                case Top:
+                ret->pos.y += nxt.y - old.y;
+                break;
+                case Middle:
+                ret->pos.y += (nxt.y - old.y)/2.f;
+                break;
+            }
         }
-        switch(vrt) {
-            case Bottom:
-            break;
-            case Top:
-            ret->pos.y += nxt.y - old.y;
-            break;
-            case Middle:
-            ret->pos.y += (nxt.y - old.y)/2.f;
-            break;
-        }
+        
         if(prev)
             prev(old, nxt);
     };

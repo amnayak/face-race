@@ -1,3 +1,6 @@
+#define GLM_FORCE_SWIZZLE  // allows vec4::xyz(), vec4::zy(), vec3::xxx() etc
+//#define GLM_FORCE_MESSAGES // debug messages on compile
+
 //Mode.hpp declares the "Mode::current" static member variable, which is used to decide where event-handling, updating, and drawing events go:
 #include "Mode.hpp"
 
@@ -29,6 +32,7 @@
 #include <memory>
 #include <algorithm>
 #include <sstream>
+
 
 int main(int argc, char **argv) {
 #ifdef _WIN32

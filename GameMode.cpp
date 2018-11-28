@@ -15,6 +15,8 @@
 #include "depth_program.hpp"
 #include "Font.hpp"
 
+#define GLM_FORCE_SWIZZLE
+#include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
@@ -294,23 +296,91 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 });
 
+UIElement *GameMode::create_shapekey_deformer(
+	float size_scr,
+	ShapeKeyMesh *mesh,
+	uint32_t vertex,
+	std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed) {
+
+	auto get_vertex_ss = [mesh](uint32_t v){
+		glm::vec3 pos = mesh->get_vertex(v);
+		glm::vec2 clp = camera->world_to_clip(glm::vec4(pos, 1));
+		glm::vec2 scr = clp/2.f + glm::vec2(.5f,.5f);
+		return scr;
+	};
+	
+	UIBox *ret = new UIBox(
+		get_vertex_ss(vertex),
+		glm::vec2(size_scr,size_scr),
+		glm::vec4(1,1,1,0.7f));
+
+	ret->onMouseDown = [ret](glm::vec2 const& m, bool i, int b) {
+        if(i) UIElement::ui_element_focused = (UIElement *)ret;
+    };
+
+    ret->onMouseUp = [ret](glm::vec2 const& m, bool i, int b) {
+        if((UIElement *)ret == UIElement::ui_element_focused) 
+            UIElement::ui_element_focused = nullptr;
+    };
+
+	ret->onHover = [ret,vertex,value_changed,mesh,this](glm::vec2 const& m, bool i) {
+		if((UIElement *)ret == UIElement::ui_element_focused) {
+			std::vector<float> nweights; nweights.resize(weights.size(), 0);
+			ret->pos = m;
+
+			glm::vec3 cur = mesh->get_vertex(vertex);
+			float dist = glm::length(cur - camera->transform->position);
+			glm::vec3 ray = camera->transform->make_local_to_world() * glm::vec4(camera->generate_ray(m), 1);
+			glm::vec3 target = camera->transform->position + ray * dist;
+
+			glm::vec3 rem = target - cur;
+
+			// Gram schmidt
+			for(int x = 0; x < mesh->key_frames.size(); ++x) {
+				// Get range of movement for this key
+				glm::vec3 key = mesh->vertex_buf[mesh->key_frames[x].start_vertex + vertex];
+				glm::vec3 ref = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
+				glm::vec3 kv = key - ref;
+
+				// Project range of movement on the target
+				float drem = glm::dot(rem, rem);
+				float a;
+				
+				if(drem > 0.0001f)
+					a = glm::dot(kv, rem) / drem;
+				else
+					a = 0;
+
+				a = std::max(0.f, std::min(1.f, a));
+				glm::vec3 proj = a * rem;
+
+				// Subtract projection from remainder & set weight
+				rem -= proj;
+				nweights[x] = a;
+			}
+
+            if(value_changed)
+                value_changed(vertex, target - rem, nweights);
+        }
+	};
+
+	return ret;
+}
+
 GameMode::GameMode(glm::uvec2 const& window_size) {
 	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
-
-	// eye_handle = new UIBox(glm::vec2(0.475f, 0.6f), glm::vec2(0.05f, 0.05f), glm::u8vec4(255, 255, 255, 100));
-	// brow_l_handle = new UIBox(glm::vec2(0.30f, 0.7f), glm::vec2(0.05f, 0.05f), glm::u8vec4(255, 155, 155, 100));
-	// brow_r_handle = new UIBox(glm::vec2(0.65f, 0.7f), glm::vec2(0.05f, 0.05f), glm::u8vec4(155, 155, 255, 100));
-	// mouth_handle = new UIBox(glm::vec2(0.475f, 0.2f), glm::vec2(0.05f, 0.05f), glm::u8vec4(155, 255, 155, 100));
 
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x) {
 		weights[x] = 0.f;
 		ui_elements.push_back(
 			UIElement::create_slider(
-				glm::vec2(150.f,window_size.y-10-x*25), 
+				glm::vec2(250.f,window_size.y-10-x*25), 
 				100, 10, 20, 
 				[x, this](float n){weights[x]=n;}, 
-				weights[x]
+				weights[x],
+				Left,
+				Middle
 				)
 			);
 	}
@@ -489,6 +559,8 @@ struct Framebuffers {
 	}
 } fbs;
 
+
+
 void GameMode::draw(glm::uvec2 const &drawable_size) {
 	fbs.allocate(drawable_size, glm::uvec2(512, 512));
 
@@ -593,27 +665,25 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	glDisable(GL_DEPTH_TEST);
 
-	std::ostringstream ss;
-	ss << "Weights: [\n";
-	for(int x = 0; x < weights.size(); ++x) {
-		ss << face->key_frames[x].name << ": " << weights[x] << "\n";
-	}
-	ss << "]";
-
 	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string(ss.str().c_str(), glm::vec2(0.1f, 0.8f), 32, 0.8f);
+	
+	float ypos = drawable_size.y/2.f + (weights.size() * 50.f)/2.f;
+	for(int x = 0; x < weights.size(); ++x) {
+		font_times->draw_ascii_string(face->key_frames[x].name.c_str(), glm::vec2(10.f/drawable_size.x, ypos/drawable_size.y), 32, 0.8f);
+		ypos -= 50.f;
+	}
 
     //TODO: hacky garbage
-    if (happy) {
-        std::string str1 = "Look happy";
-	     font_times->draw_ascii_string(str1.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    } else if (sad) {
-        std::string str2 = "Look sad";
-	    font_times->draw_ascii_string(str2.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    } else if (gg) {
-        std::string str3 = "Good job";
-	    font_times->draw_ascii_string(str3.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    }
+    // if (happy) {
+    //     std::string str1 = "Look happy";
+	   //   font_times->draw_ascii_string(str1.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    // } else if (sad) {
+    //     std::string str2 = "Look sad";
+	   //  font_times->draw_ascii_string(str2.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    // } else if (gg) {
+    //     std::string str3 = "Good job";
+	   //  font_times->draw_ascii_string(str3.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
+    // }
 	// eye_handle->draw(drawable_size);
 	// brow_l_handle->draw(drawable_size);
 	// brow_r_handle->draw(drawable_size);

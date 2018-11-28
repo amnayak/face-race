@@ -42,8 +42,9 @@ public:
     std::vector <ShapeKey> key_frames;
     std::vector <VertexGroup> vertex_groups;
 
-    /* Map of shape keys by their name (NOT including reference) */
+    /* Map of shape keys by their name (NOT including reference shapekey) */
     std::map< std::string, ShapeKey > frame_map;
+    /* Map of vertex groups by their name */
     std::map< std::string, VertexGroup > group_map;
 
     /* Reference shape key */
@@ -61,6 +62,11 @@ public:
 
         return false;
     }
+
+    /* returns calculated vertex position for given vertex.
+     * recalculate_mesh_data(..) must be called beforehand
+     */
+    glm::vec3 get_vertex(uint32_t v);
 
 private:
     /* Generic data to write.  Packed with P/PN/PNC/PNCTVertex based

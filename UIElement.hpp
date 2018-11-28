@@ -42,7 +42,7 @@ public:
 	virtual void update(float elapsed) { }
 
 	static UIElement *create_slider(
-		glm::vec2 const& center,
+		glm::vec2 center,
 		float width,
 		float bar_thickness,
 		float btn_thickness,
@@ -51,8 +51,10 @@ public:
 		HozAnchor hoz = Left,
     	VrtAnchor vrt = Top);
 
+	static UIElement *ui_element_focused;
+
 protected:
-	glm::uvec2 prev_window_size;
+	glm::uvec2 prev_window_size = glm::uvec2(0,0);
 };
 
 struct UIGroupElement : public UIElement {
@@ -60,9 +62,10 @@ public:
 	const std::vector<UIElement *> children;
 
 	UIGroupElement(const std::vector<UIElement *> children, glm::vec2 pos, glm::vec2 size) : UIElement(pos, size), children(children) {
-		onResize = [&children](glm::vec2 const &s1, glm::vec2 const &s2){
-			for(UIElement *cur : children)
-				cur->onResize(s1, s2);
+		onResize = [this](glm::vec2 const &s1, glm::vec2 const &s2){
+			for(UIElement *cur : this->children)
+				if(cur->onResize)
+					cur->onResize(s1, s2);
 		};
 	}
 
