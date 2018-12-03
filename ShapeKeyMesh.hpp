@@ -66,7 +66,9 @@ public:
     /* returns calculated vertex position for given vertex.
      * recalculate_mesh_data(..) must be called beforehand
      */
-    glm::vec3 get_vertex(uint32_t v);
+    glm::vec3 get_vertex(uint32_t v) const;
+
+    size_t get_vertex_count() const;
 
 private:
     /* Generic data to write.  Packed with P/PN/PNC/PNCTVertex based

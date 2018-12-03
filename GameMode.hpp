@@ -34,7 +34,8 @@ struct GameMode : public Mode {
 		float size_scr,
 		ShapeKeyMesh *mesh,
 		uint32_t vertex,
-		std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed);
+		std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed,
+		std::function<glm::mat4()> mesh2world, std::function<glm::mat4()> world2mesh);
 
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
@@ -43,6 +44,7 @@ struct GameMode : public Mode {
 	std::vector<float> weights;
 
 	glm::uvec2 window_size;
+	glm::uvec2 cur_mouse_pos;
 
 	std::vector<UIElement *> ui_elements;
 };

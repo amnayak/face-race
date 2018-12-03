@@ -34,12 +34,17 @@ public:
 	glm::vec2 pos; // center
 	glm::vec2 size; // dims
 
+	std::string name = "unnamed";
+
 	UIElement(glm::vec2 pos, glm::vec2 size) : pos(pos), size(size) { }
 
 	virtual void handle_event(SDL_Event const &evt, glm::uvec2 const &window_size);
 
 	virtual void draw(glm::uvec2 const& window_size, glm::mat4 const& view) = 0;
-	virtual void update(float elapsed) { }
+	virtual void update(float elapsed) {
+		if(onUpdate)
+			onUpdate(elapsed);
+	}
 
 	static UIElement *create_slider(
 		glm::vec2 center,
@@ -47,6 +52,7 @@ public:
 		float bar_thickness,
 		float btn_thickness,
 		std::function<void(float)> value_changed,
+		std::function<float(void)> retrieve_value,
 		float initial,
 		HozAnchor hoz = Left,
     	VrtAnchor vrt = Top);
@@ -54,6 +60,7 @@ public:
 	static UIElement *ui_element_focused;
 
 protected:
+	std::function<void(float)> onUpdate;
 	glm::uvec2 prev_window_size = glm::uvec2(0,0);
 };
 

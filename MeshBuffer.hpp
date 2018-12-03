@@ -91,6 +91,6 @@ struct MeshBuffer {
 	std::vector< char > *vertex_data;
 
 private:
-	friend class ShapeKeyMesh;
+	friend class ShapeKeyMesh; // bad form, i confess my sins jim
 	std::vector< char > data;
 };

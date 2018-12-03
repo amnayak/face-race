@@ -2,7 +2,6 @@
 
 #include "GL.hpp"
 
-#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -89,6 +88,9 @@ struct Scene {
 			//textures:
 			enum : uint32_t { TextureCount = 4 };
 			GLuint textures[TextureCount] = {0,0,0,0}; //textures to bind
+
+			//drawing parameters:
+			bool zwrite = true;
 		} programs[ProgramTypes];
 
 		//used by Scene to manage allocation:

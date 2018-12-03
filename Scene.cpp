@@ -1,7 +1,6 @@
 #include "Scene.hpp"
 #include "read_chunk.hpp"
 
-#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -116,11 +115,11 @@ glm::mat4 Scene::Camera::make_projection() const {
 }
 
 glm::vec3 Scene::Camera::generate_ray(const glm::vec2 &ss) const {
-	float tany = tan(fovy);
-	float tanx = tan(fovy * aspect);
-	float dist = sqrt(1 + tanx*tanx + tany*tany);
+	float y = ss.y * glm::tan(fovy / 2.f);
+	float x = ss.x * glm::tan(fovy / 2.f * aspect);
+	float dist = glm::sqrt(1.f + x*x + y*y);
 
-	return glm::vec3(tanx*ss.x, tany*ss.y, 1) / dist;
+	return glm::vec3(x, y, -1.f) / dist;
 }
 
 glm::vec2 Scene::Camera::world_to_clip(const glm::vec3 &ws) const {
@@ -128,7 +127,7 @@ glm::vec2 Scene::Camera::world_to_clip(const glm::vec3 &ws) const {
 	glm::mat4 w2c_mat = make_projection() * world_to_camera;
 	glm::vec4 clip = w2c_mat * glm::vec4(ws, 1);
 	clip /= clip.w;
-	return clip.xy();
+	return glm::vec2(clip.x, clip.y);
 }
 
 //---------------------------
@@ -218,7 +217,11 @@ void Scene::draw(Scene::Lamp const *lamp, Object::ProgramType program_type) cons
 void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_type) const {
 	assert(program_type < Object::ProgramTypes);
 
+	static bool b = false;
+
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
+		if(!b)
+			std::cout << object->transform->name << std::endl;
 		//don't draw if no program of this type attached to object:
 		if (object->programs[program_type].program == 0) continue;
 
@@ -258,9 +261,16 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 
 		glBindVertexArray(info.vao);
 
+		GLboolean dm;
+		glGetBooleanv(GL_DEPTH_WRITEMASK, &dm);
+		glDepthMask((GLboolean)info.zwrite);
+
 		//draw the object:
 		glDrawArrays(GL_TRIANGLES, info.start, info.count);
+
+		glDepthMask(dm);
 	}
+	b = true;
 
 	//unbind any still bound textures and go back to active texture unit zero:
 	for (uint32_t i = 0; i < Object::ProgramInfo::TextureCount; ++i) {

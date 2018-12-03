@@ -148,11 +148,9 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         norms[x] = 0;
 
     static bool p = true;
-    auto apply_key = [&, sizeof_vertex, offsetof_pos](int i, int v) {
+    auto apply_key = [&weights, sizeof_vertex, offsetof_pos, this](int i, int v) {
         glm::vec3 *pos = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
         *pos += vertex_buf[key_frames[i].start_vertex + v] * weights[i];
-
-        //std::cout << vertex_buf[key_frames[i].start_vertex + v].x << " " << vertex_buf[key_frames[i].start_vertex + v].y << " " << vertex_buf[key_frames[i].start_vertex + v].z << std::endl;
 
         norms[v] += weights[i];
     };
@@ -178,15 +176,21 @@ void ShapeKeyMesh::recalculate_mesh_data (const std::vector <float> &weights) {
         // basis in that case.  If norms[v] < 1 then we assume
         // that the user wants (1 - norms[v]) of the basis.
         // For example, all weights = 0 => basis
-        *pos += (1.f - std::max(0.f, std::min(1.f ,norms[v]))) * vertex_buf[reference_key.start_vertex + v];
+        *pos += (1.f - norms[v]) * vertex_buf[reference_key.start_vertex + v];
     }
 
     p = false;
     mesh->update_vertex_data(data_to_write);
 }
 
-glm::vec3 ShapeKeyMesh::get_vertex(uint32_t v) {
+glm::vec3 ShapeKeyMesh::get_vertex(uint32_t v) const {
     size_t sizeof_vertex, offsetof_pos;
     get_struct_info(mesh, sizeof_vertex, offsetof_pos);
-    return *(glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
+    if (v >= data_to_write.size() / sizeof_vertex) return glm::vec3(0,0,0);
+    glm::vec3 *ret = (glm::vec3 *)((char *)data_to_write.data() + (v * sizeof_vertex) + offsetof_pos);
+    return *ret;
+}
+
+size_t ShapeKeyMesh::get_vertex_count() const {
+    return (*(mesh->meshes.begin())).second.count;
 }

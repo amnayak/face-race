@@ -15,9 +15,10 @@
 #include "depth_program.hpp"
 #include "Font.hpp"
 
-#define GLM_FORCE_SWIZZLE
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -53,6 +54,7 @@ Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
 	std::vector<MeshBuffer *> *ret = new std::vector<MeshBuffer *>;
 
 	ret->push_back(new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW));
+	ret->push_back(new MeshBuffer(data_path("suzanne.pnct"), GL_STATIC_DRAW));
 	suzanne_mesh = new MeshBuffer(data_path("face.pnct"), GL_DYNAMIC_DRAW);
 	ret->push_back(suzanne_mesh);
 
@@ -201,6 +203,7 @@ Scene::Camera *camera = nullptr;
 Scene::Transform *spot_parent_transform = nullptr;
 Scene::Lamp *spot = nullptr;
 
+Scene::Object *face_object = nullptr;
 Scene::Object *suzanne_object = nullptr;
 
 Load< Scene > scene(LoadTagDefault, [](){
@@ -219,7 +222,9 @@ Load< Scene > scene(LoadTagDefault, [](){
 	depth_program_info.vao = 0; // will set later
 	depth_program_info.mvp_mat4  = depth_program->object_to_clip_mat4;
 
+	// Note: rendered in reverse-loading order
 	std::vector<std::string const> names;
+	names.push_back(data_path("suzanne.scene"));
 	names.push_back(data_path("vignette.scene"));
 	names.push_back(data_path("face.scene"));
 
@@ -234,6 +239,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *marble_tex;
 		} else if (t->name == "face") {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
+			face_object = obj;
+		} else if (t->name == "suzanne") {
+			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
+			obj->programs[Scene::Object::ProgramTypeDefault].zwrite = false;
+			obj->programs[Scene::Object::ProgramTypeShadow].zwrite = false;
 			suzanne_object = obj;
 		} else {
 			obj->programs[Scene::Object::ProgramTypeDefault].textures[0] = *white_tex;
@@ -300,17 +310,20 @@ UIElement *GameMode::create_shapekey_deformer(
 	float size_scr,
 	ShapeKeyMesh *mesh,
 	uint32_t vertex,
-	std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed) {
+	std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed,
+	std::function<glm::mat4()> mesh2world, std::function<glm::mat4()> world2mesh) {
 
-	auto get_vertex_ss = [mesh](uint32_t v){
-		glm::vec3 pos = mesh->get_vertex(v);
-		glm::vec2 clp = camera->world_to_clip(glm::vec4(pos, 1));
+	auto mesh_to_uispace = [this](glm::vec3 const& pos, glm::mat4 const& m2w){
+		glm::vec2 clp = camera->world_to_clip(m2w * glm::vec4(pos, 1.f));
 		glm::vec2 scr = clp/2.f + glm::vec2(.5f,.5f);
+
+		scr.x *= window_size.x;
+		scr.y *= window_size.y;
 		return scr;
 	};
 	
 	UIBox *ret = new UIBox(
-		get_vertex_ss(vertex),
+		mesh_to_uispace(mesh->get_vertex(vertex), mesh2world()),
 		glm::vec2(size_scr,size_scr),
 		glm::vec4(1,1,1,0.7f));
 
@@ -323,24 +336,53 @@ UIElement *GameMode::create_shapekey_deformer(
             UIElement::ui_element_focused = nullptr;
     };
 
-	ret->onHover = [ret,vertex,value_changed,mesh,this](glm::vec2 const& m, bool i) {
+	ret->onHover = [ret,vertex,value_changed,mesh,mesh_to_uispace,mesh2world,world2mesh,this](glm::vec2 const& m_, bool i) {
+		glm::vec3 cur = mesh->get_vertex(vertex); //model
+		glm::mat4 m2w = mesh2world();
+		ret->pos = mesh_to_uispace(cur, m2w);
+
+		glm::vec2 m = glm::vec2(m_.x / window_size.x, m_.y / window_size.y);
+
 		if((UIElement *)ret == UIElement::ui_element_focused) {
 			std::vector<float> nweights; nweights.resize(weights.size(), 0);
-			ret->pos = m;
 
-			glm::vec3 cur = mesh->get_vertex(vertex);
-			float dist = glm::length(cur - camera->transform->position);
-			glm::vec3 ray = camera->transform->make_local_to_world() * glm::vec4(camera->generate_ray(m), 1);
-			glm::vec3 target = camera->transform->position + ray * dist;
+			glm::mat4 w2m = world2mesh();
+			glm::mat4 camera_l2w = camera->transform->make_local_to_world();
 
-			glm::vec3 rem = target - cur;
+			glm::vec4 cam4 = w2m * camera_l2w * glm::vec4(0.f, 0.f, 0.f, 1.f);
+			cam4 /= cam4.w;
+			glm::vec3 cam3 = glm::vec3(cam4);
+			float dist = glm::length(cur - cam3);
+
+			glm::vec2 mm = m * 2.f - 1.f;
+			glm::vec4 oray = glm::vec4(camera->generate_ray(mm), 0.f);
+			glm::vec4 ray4 = w2m * camera_l2w * oray;
+			glm::vec3 ray = glm::normalize(ray4);
+
+			glm::vec3 target = glm::vec3(cam4) + ray * dist;
+			
+			glm::vec3 cur_proj = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
+			glm::vec3 rem = target - cur_proj;
+
+			/* // Uncomment for coordinate space debuging //
+			std::cout << "-----------" << std::endl 
+					<< "mm:   " << glm::to_string(mm) << std::endl 
+					<< "rlen: " << glm::length(ray) << std::endl 
+					<< "orlen:" << glm::length(oray) << std::endl 
+					<< "dist: " << dist << std::endl 
+					<< "ray4: " << glm::to_string(ray4) << std::endl 
+					<< "ray:  " << glm::to_string(ray) << std::endl 
+					<< "cam3: " << glm::to_string(cam3) << std::endl 
+					<< "cur:  " << glm::to_string(cur) << std::endl 
+					<< "tar:  " << glm::to_string(target) << std::endl 
+					<< "rem:  " << glm::to_string(rem) << std::endl;
+			*/
 
 			// Gram schmidt
 			for(int x = 0; x < mesh->key_frames.size(); ++x) {
 				// Get range of movement for this key
 				glm::vec3 key = mesh->vertex_buf[mesh->key_frames[x].start_vertex + vertex];
-				glm::vec3 ref = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
-				glm::vec3 kv = key - ref;
+				glm::vec3 kv = key - cur_proj;
 
 				// Project range of movement on the target
 				float drem = glm::dot(rem, rem);
@@ -356,11 +398,16 @@ UIElement *GameMode::create_shapekey_deformer(
 
 				// Subtract projection from remainder & set weight
 				rem -= proj;
+				cur_proj += proj;
 				nweights[x] = a;
 			}
 
+			//face->recalculate_mesh_data(nweights);
+
             if(value_changed)
-                value_changed(vertex, target - rem, nweights);
+                value_changed(vertex, cur_proj, nweights);
+
+            ret->pos = mesh_to_uispace(cur_proj, m2w);
         }
 	};
 
@@ -378,12 +425,25 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 				glm::vec2(250.f,window_size.y-10-x*25), 
 				100, 10, 20, 
 				[x, this](float n){weights[x]=n;}, 
+				[x, this](){return weights[x];},
 				weights[x],
 				Left,
 				Middle
 				)
 			);
 	}
+
+	UIElement *deformer = create_shapekey_deformer(20, face, 1300, 
+		[this](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
+			for(int x = 0; x < ws.size(); ++x)
+				this->weights[x] += ws[x];
+		},
+		std::bind(&Scene::Transform::make_local_to_world, face_object->transform), 
+		std::bind(&Scene::Transform::make_world_to_local, face_object->transform)
+	);
+	deformer->name = "deformer";
+
+	ui_elements.push_back(deformer);
 
 	this->window_size = window_size;
 }
@@ -399,11 +459,20 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	switch(e.type) {
         case SDL_MOUSEMOTION:
         e.motion.y = window_size.y - e.motion.y;
+
+        cur_mouse_pos = glm::vec2(e.motion.x, e.motion.y);
         break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
         e.button.y = window_size.y - e.button.y;
         break;
+    }
+
+    if(e.type == SDL_MOUSEMOTION 
+    	&& UIElement::ui_element_focused 
+    	&& UIElement::ui_element_focused->name == "deformer") {
+    	for(int x = 0; x < weights.size(); ++x)
+			weights[x] = 0;
     }
 
 	for(UIElement *cur : ui_elements) {
@@ -420,13 +489,13 @@ void GameMode::update(float elapsed) {
 	static float timer = 0;
 	timer += elapsed;
 
-	suzanne_object->transform->position.z = 1;
-	suzanne_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
-	face->recalculate_mesh_data(weights);
-
 	for(UIElement *cur : ui_elements) {
 		cur->update(elapsed);
 	}
+
+	face_object->transform->position.z = 1;
+	face_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
+	face->recalculate_mesh_data(weights);
 
     //TODO
     /** state logic **/
@@ -494,6 +563,18 @@ struct Framebuffers {
 	GLuint shadow_color_tex = 0; //DEBUG
 	GLuint shadow_depth_tex = 0;
 	GLuint shadow_fb = 0;
+
+	/* Returns the z-depth for the given pixel by sampling the depth buffer.
+	 * Returns a value from 0 to 1, with 0 being the near clip plane and 1 is the far plane
+	 * note: scr is in pixels, not normalized screen space
+	 */
+	float sample_depth(glm::uvec2 const &scr) {
+		float ret;
+		glBindFramebuffer(GL_FRAMEBUFFER, fb);
+		glReadPixels(scr.x, scr.y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &ret);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		return ret;
+	}
 
 	void allocate(glm::uvec2 const &new_size, glm::uvec2 const &new_shadow_size) {
 		//allocate full-screen framebuffer:
@@ -673,28 +754,42 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 		ypos -= 50.f;
 	}
 
-    //TODO: hacky garbage
-    // if (happy) {
-    //     std::string str1 = "Look happy";
-	   //   font_times->draw_ascii_string(str1.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    // } else if (sad) {
-    //     std::string str2 = "Look sad";
-	   //  font_times->draw_ascii_string(str2.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    // } else if (gg) {
-    //     std::string str3 = "Good job";
-	   //  font_times->draw_ascii_string(str3.c_str(), glm::vec2(0.2f, 0.8f), 64, 1.0f);
-    // }
-	// eye_handle->draw(drawable_size);
-	// brow_l_handle->draw(drawable_size);
-	// brow_r_handle->draw(drawable_size);
-	// mouth_handle->draw(drawable_size);
-	// font_arial->screen_dim = drawable_size;
-	// font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
-
     glm::mat4 id4(1);
     for(UIElement *cur : ui_elements) {
 		cur->draw(window_size, id4);
 	}
+
+	glm::vec2 smpos = cur_mouse_pos;
+	smpos = smpos * ((float)drawable_size.x / (float)window_size.x);
+	float raw_depth = fbs.sample_depth((glm::uvec2)smpos);
+	glm::vec4 clip = glm::vec4((float)cur_mouse_pos.x/window_size.x*2.f-1.f, (float)cur_mouse_pos.y/window_size.y*2.f-1.f, raw_depth*2.f-1.f, 1.f);
+	glm::vec4 view = glm::inverse(camera->make_projection()) * clip;
+	view /= view.w;
+	glm::vec4 look_ = camera->transform->make_local_to_world() * view;
+	glm::vec3 look = glm::vec3(look_.x, look_.y, look_.z);
+	//std::cout << cur_mouse_pos.x << " " << cur_mouse_pos.y << " , " << clip.x << " " << clip.y << " " << clip.z << " , " << raw_depth << std::endl;
+
+	uint32_t min_vert;
+	glm::vec3 min_pos;
+	float min_d2 = 1e9;
+	glm::mat4 face2w = face_object->transform->make_local_to_world();
+	for(uint32_t x = 0; x < face->get_vertex_count(); ++x) {
+		glm::vec4 cur_ = face2w * glm::vec4(face->get_vertex(x), 1.f);
+		glm::vec3 cur = glm::vec3(cur_.x, cur_.y, cur_.z);
+		glm::vec3 dif = look - cur;
+		float d2 = glm::dot(dif,dif);
+		if(d2 < min_d2) {
+			min_vert = x;
+			min_d2 = d2;
+			min_pos = cur;
+		}
+	}
+	std::stringstream vertss;
+	vertss << "Pointed Vertex: " << min_vert << " [" << min_pos.x << ", " << min_pos.y << ", " << min_pos.z << "]";
+	font_times->draw_ascii_string(vertss.str().c_str(), glm::vec2(10.f/drawable_size.x, 1.f-50.f/drawable_size.y), 32);
+
+	suzanne_object->transform->position = look;//glm::vec3(0, 0.5f, 0.5f);
+	suzanne_object->transform->scale = glm::vec3(0,0,0);//glm::vec3(0.2f, 0.2f, 0.2f);
 
 	glEnable(GL_DEPTH_TEST);
 }

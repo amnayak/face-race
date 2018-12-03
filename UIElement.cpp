@@ -210,6 +210,8 @@ void UIGroupElement::draw(glm::uvec2 const& window_size, glm::mat4 const& view) 
 }
 
 void UIGroupElement::update(float elapsed) {
+    UIElement::update(elapsed);
+
     for(UIElement *cur : children)
         cur->update(elapsed);
 }
@@ -220,6 +222,7 @@ UIElement *UIElement::create_slider(
     float bar_thickness,
     float btn_thickness,
     std::function<void(float)> value_changed,
+    std::function<float(void)> retrieve_value,
     float initial,
     HozAnchor hoz,
     VrtAnchor vrt) {
@@ -248,6 +251,13 @@ UIElement *UIElement::create_slider(
             fnt->pos.x = std::max(0.f,std::min(width,m.x));
             if(value_changed && width)
                 value_changed(fnt->pos.x / width);
+        }
+    };
+
+    fnt->onUpdate = [fnt,retrieve_value,width](float elapsed) {
+        if((UIElement *)fnt != ui_element_focused) {
+            if(retrieve_value && width)
+                fnt->pos.x = width * retrieve_value();
         }
     };
 
