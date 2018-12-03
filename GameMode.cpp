@@ -27,6 +27,7 @@
 #include <random>
 #include <sstream>
 #include <chrono>
+#include <array>
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> fsec;
 auto t0 = Time::now();
@@ -348,11 +349,13 @@ UIElement *GameMode::create_shapekey_deformer(
 
 			glm::mat4 w2m = world2mesh();
 			glm::mat4 camera_l2w = camera->transform->make_local_to_world();
+			glm::mat4 camera_w2l = camera->transform->make_world_to_local();
 
 			glm::vec4 cam4 = w2m * camera_l2w * glm::vec4(0.f, 0.f, 0.f, 1.f);
 			cam4 /= cam4.w;
 			glm::vec3 cam3 = glm::vec3(cam4);
-			float dist = glm::length(cur - cam3);
+			glm::vec4 cur_cam = camera_w2l * m2w * glm::vec4(cur, 1.f);
+			float dist = glm::length(cur - cam3) / fabs(cur_cam.z);
 
 			glm::vec2 mm = m * 2.f - 1.f;
 			glm::vec4 oray = glm::vec4(camera->generate_ray(mm), 0.f);
@@ -360,7 +363,12 @@ UIElement *GameMode::create_shapekey_deformer(
 			glm::vec3 ray = glm::normalize(ray4);
 
 			glm::vec3 target = glm::vec3(cam4) + ray * dist;
-			
+
+			auto closest_on_target_ray = [ray,cam3](glm::vec3 const& pt) {
+				glm::vec3 r = pt - cam3;
+				return cam3 + (glm::dot(ray, r) * ray);
+			};
+
 			glm::vec3 cur_proj = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
 			glm::vec3 rem = target - cur_proj;
 
@@ -385,29 +393,35 @@ UIElement *GameMode::create_shapekey_deformer(
 				glm::vec3 kv = key - cur_proj;
 
 				// Project range of movement on the target
-				float drem = glm::dot(rem, rem);
+				float dkv = glm::dot(kv, kv);
 				float a;
 				
-				if(drem > 0.0001f)
-					a = glm::dot(kv, rem) / drem;
+				if(dkv > 0.0001f)
+					a = glm::dot(kv, rem) / dkv;
 				else
 					a = 0;
 
 				a = std::max(0.f, std::min(1.f, a));
 				glm::vec3 proj = a * rem;
 
-				// Subtract projection from remainder & set weight
-				rem -= proj;
+				// "Subtract" projection from remainder & set weight
+				// Instead of subtracting the projection directly like normal gram-schmidt,
+				// we reproject the current point onto the camera ray to find the closest point
+				// on the ray.  We do this because we don't actually want the target vertex to
+				// move to the originally-calculated target; we instead want the target vertex
+				// to move to the camera ray.  The closest point on the camera ray changes as
+				// gram-schmidt proceeds, so we need to readjust.
 				cur_proj += proj;
+				target = closest_on_target_ray(cur_proj);
+				rem = target - cur_proj;
+				
 				nweights[x] = a;
 			}
-
-			//face->recalculate_mesh_data(nweights);
 
             if(value_changed)
                 value_changed(vertex, cur_proj, nweights);
 
-            ret->pos = mesh_to_uispace(cur_proj, m2w);
+            ret->pos = mesh_to_uispace(mesh->get_vertex(vertex), m2w);
         }
 	};
 
@@ -433,17 +447,35 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 			);
 	}
 
-	UIElement *deformer = create_shapekey_deformer(20, face, 1300, 
-		[this](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
-			for(int x = 0; x < ws.size(); ++x)
-				this->weights[x] += ws[x];
-		},
-		std::bind(&Scene::Transform::make_local_to_world, face_object->transform), 
-		std::bind(&Scene::Transform::make_world_to_local, face_object->transform)
-	);
-	deformer->name = "deformer";
+	const size_t num_deformers = 2;
+	std::array<size_t, num_deformers> reference_vertices = {
+		1300, 9
+	};
+	static std::array<std::vector<float>, num_deformers> deformer_weights;
+	for(int x = 0; x < num_deformers; ++x) {
+		deformer_weights[x].resize(weights.size());
+		for(int y = 0; y < weights.size(); ++y)
+			deformer_weights[x][y] = 0.f;
+	}
 
-	ui_elements.push_back(deformer);
+	for(int x =0; x < num_deformers; ++x) {
+		UIElement *deformer = create_shapekey_deformer(20, face, reference_vertices[x], 
+			[this, x](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
+				deformer_weights[x] = ws;
+				for(int i = 0; i < weights.size(); ++i) {
+					weights[i] = 0;
+					for(int j = 0; j < num_deformers; ++j) {
+						weights[i] += deformer_weights[j][i];
+					}
+				}
+			},
+			std::bind(&Scene::Transform::make_local_to_world, face_object->transform), 
+			std::bind(&Scene::Transform::make_world_to_local, face_object->transform)
+		);
+
+		deformer->name = "deformer";
+		ui_elements.push_back(deformer);
+	}
 
 	this->window_size = window_size;
 }
