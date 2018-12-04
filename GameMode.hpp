@@ -37,6 +37,18 @@ struct GameMode : public Mode {
 		std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed,
 		std::function<glm::mat4()> mesh2world, std::function<glm::mat4()> world2mesh);
 
+	UIElement *create_prompt(
+		glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name);
+
+	UIElement *create_button(
+		glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name);
+
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
 
@@ -50,4 +62,5 @@ struct GameMode : public Mode {
 	std::vector<UIElement *> ui_elements;
 
 	bool debug_mode_enabled = false;
+	bool menu = true;
 };

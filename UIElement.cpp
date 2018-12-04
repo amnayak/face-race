@@ -29,7 +29,7 @@ Load < GLuint > white_texture(LoadTagDefault, []() {
     GLuint *tex = new GLuint;
     glGenTextures(1, tex);
 
-    static glm::u8vec4 white(255, 255, 255, 255);
+    static glm::u8vec4 white(255, 255, 255, 170);
 
     glBindTexture(GL_TEXTURE_2D, *tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(white));
@@ -46,6 +46,7 @@ Load < GLuint > white_texture(LoadTagDefault, []() {
 
 
 UIBox::UIBox(glm::vec2 pos, glm::vec2 size, glm::vec4 color) : UIElement(pos, size), color(color) {
+    tex = *white_texture;
     glGenBuffers(1, &vbo);
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -116,7 +117,7 @@ void UIBox::draw(glm::uvec2 const& window_size, glm::mat4 const& view) {
     GL_ERRORS();
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, *white_texture);
+    glBindTexture(GL_TEXTURE_2D, tex);
 
     GL_ERRORS();
 

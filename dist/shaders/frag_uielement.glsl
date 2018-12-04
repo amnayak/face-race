@@ -8,6 +8,6 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
-	fragColor = u_color * texture(u_texture, v_texCoord);
-	//fragColor = u_color;
+	fragColor = texture(u_texture, v_texCoord);
+	// fragColor = u_color;
 }
