@@ -541,7 +541,15 @@ static size_t get_closest_weight(std::vector<float> weights, ShapeKeyMesh *const
 		wsurprised += surprised[x] * weights[oidx];
 	}
 
-	if(whappy < 0.4f && wsad < 0.4f && wconfusedL < 0.4f && wconfusedR < 0.4f && wsurprised < 0.4f)
+	/*
+	std::cout << "whappy: " << whappy << std::endl
+			  << "wsad:   " << wsad << std::endl
+			  << "wconfL: " << wconfusedL << std::endl
+			  << "wconfR: " << wconfusedR << std::endl
+			  << "wsurpr: " << wsurprised << std::endl;
+	*/
+
+	if(whappy < 0.1f && wsad < 0.1f && wconfusedL < 0.1f && wconfusedR < 0.1f && wsurprised < 0.1f)
 		return NEUTRAL;
 
 	if(whappy >= wsad && whappy >= wconfusedL && whappy >= wconfusedR && whappy >= wsurprised)
