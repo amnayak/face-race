@@ -13,8 +13,6 @@ struct TextureProgram {
 
 	GLuint sun_direction_vec3 = -1U; //direction *to* sun
 	GLuint sun_color_vec3 = -1U;
-	GLuint sky_direction_vec3 = -1U; //direction *to* sky
-	GLuint sky_color_vec3 = -1U;
 
 	GLuint spot_position_vec3 = -1U;
 	GLuint spot_direction_vec3 = -1U; //direction *from* spotlight
@@ -25,6 +23,7 @@ struct TextureProgram {
 	//textures:
 	//texture0 - texture for the surface
 	//texture1 - texture for spot light shadow map
+	//texture2 - texture for ibl
 
 	TextureProgram();
 };

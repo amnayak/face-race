@@ -6,7 +6,7 @@
 CubeProgram::CubeProgram() {
 	program = compile_program_file("shaders/vert_cube_map.glsl", "shaders/frag_cube_map.glsl");
 	object_to_clip_mat4 = glGetUniformLocation(program, "object_to_clip");
-
+	res_vec2 = glGetUniformLocation(program, "res");
 	glUseProgram(program);
 
 	GLuint tex_samplerCube = glGetUniformLocation(program, "tex");

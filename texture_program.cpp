@@ -12,8 +12,6 @@ TextureProgram::TextureProgram() {
 
 	sun_direction_vec3 = glGetUniformLocation(program, "sun_direction");
 	sun_color_vec3 = glGetUniformLocation(program, "sun_color");
-	sky_direction_vec3 = glGetUniformLocation(program, "sky_direction");
-	sky_color_vec3 = glGetUniformLocation(program, "sky_color");
 
 	spot_position_vec3 = glGetUniformLocation(program, "spot_position");
 	spot_direction_vec3 = glGetUniformLocation(program, "spot_direction");
@@ -29,6 +27,9 @@ TextureProgram::TextureProgram() {
 
 	GLuint spot_depth_tex_sampler2D = glGetUniformLocation(program, "spot_depth_tex");
 	glUniform1i(spot_depth_tex_sampler2D, 1);
+
+	GLuint tex_samplerCube = glGetUniformLocation(program, "ibl");
+	glUniform1i(tex_samplerCube, 2);
 
 	glUseProgram(0);
 

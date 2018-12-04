@@ -9,6 +9,8 @@ struct CubeProgram {
 	//uniform locations:
 	GLuint object_to_clip_mat4 = -1U;
 
+	GLuint res_vec2 = -1U;
+
 	//textures:
 	//texture0 - cube map
 

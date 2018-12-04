@@ -88,6 +88,7 @@ struct Scene {
 			//textures:
 			enum : uint32_t { TextureCount = 4 };
 			GLuint textures[TextureCount] = {0,0,0,0}; //textures to bind
+			GLuint texture_type[TextureCount] = {GL_TEXTURE_2D, GL_TEXTURE_2D, GL_TEXTURE_2D, GL_TEXTURE_2D};
 
 			//drawing parameters:
 			bool zwrite = true;

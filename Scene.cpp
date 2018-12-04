@@ -1,6 +1,8 @@
 #include "Scene.hpp"
 #include "read_chunk.hpp"
 
+#include "gl_errors.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -246,26 +248,43 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 			glUniformMatrix3fv(info.itmv_mat3, 1, GL_FALSE, glm::value_ptr(itmv));
 		}
 
+		GL_ERRORS();
+
 		if (info.set_uniforms) info.set_uniforms();
+
+		GL_ERRORS();
 
 		//set up program textures:
 		for (uint32_t i = 0; i < Object::ProgramInfo::TextureCount; ++i) {
 			if (info.textures[i] != 0) {
+				GL_ERRORS();
 				glActiveTexture(GL_TEXTURE0 + i);
-				glBindTexture(GL_TEXTURE_2D, info.textures[i]);
+				GL_ERRORS();
+				glBindTexture(info.texture_type[i], info.textures[i]);
+				GL_ERRORS();
 			}
 		}
 
+		GL_ERRORS();
+
 		glBindVertexArray(info.vao);
+
+		GL_ERRORS();
 
 		GLboolean dm;
 		glGetBooleanv(GL_DEPTH_WRITEMASK, &dm);
 		glDepthMask((GLboolean)info.zwrite);
 
+		GL_ERRORS();
+
 		//draw the object:
 		glDrawArrays(GL_TRIANGLES, info.start, info.count);
 
+		GL_ERRORS();
+
 		glDepthMask(dm);
+
+		GL_ERRORS();
 	}
 
 	//unbind any still bound textures and go back to active texture unit zero:
