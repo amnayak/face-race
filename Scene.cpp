@@ -268,26 +268,29 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 			}
 		}
 
-		GL_ERRORS();
+		if(info.vao != 0) {
+			GL_ERRORS();
 
-		glBindVertexArray(info.vao);
+			glBindVertexArray(info.vao);
 
-		GL_ERRORS();
+			GL_ERRORS();
 
-		GLboolean dm;
-		glGetBooleanv(GL_DEPTH_WRITEMASK, &dm);
-		glDepthMask((GLboolean)info.zwrite);
+			GLboolean dm;
+			glGetBooleanv(GL_DEPTH_WRITEMASK, &dm);
+			glDepthMask((GLboolean)info.zwrite);
 
-		GL_ERRORS();
+			GL_ERRORS();
 
-		//draw the object:
-		glDrawArrays(GL_TRIANGLES, info.start, info.count);
+			//draw the object:
+			glDrawArrays(GL_TRIANGLES, info.start, info.count);
 
-		GL_ERRORS();
+			GL_ERRORS();
 
-		glDepthMask(dm);
+			glDepthMask(dm);
 
-		GL_ERRORS();
+			GL_ERRORS();
+		}
+		
 	}
 
 	//unbind any still bound textures and go back to active texture unit zero:
@@ -312,14 +315,14 @@ Scene::~Scene() {
 }
 
 void Scene::load(std::vector<std::string const> const& filenames,
-	std::function< void(Scene &, Transform *, std::string const &) > const &on_object) {
+	std::function< void(Scene &, Transform *, std::string const *) > const &on_object) {
 	for(std::string const &cur : filenames) {
 		load(cur, on_object);
 	}
 }
 
 void Scene::load(std::string const &filename,
-	std::function< void(Scene &, Transform *, std::string const &) > const &on_object) {
+	std::function< void(Scene &, Transform *, std::string const *) > const &on_object) {
 
 	std::ifstream file(filename, std::ios::binary);
 
@@ -369,9 +372,18 @@ void Scene::load(std::string const &filename,
 	std::vector< LightEntry > lamps;
 	read_chunk(file, "lmp0", &lamps);
 
+	struct EmptyEntry {
+		uint32_t transform;
+	};
+	static_assert(sizeof(EmptyEntry) == 4, "EmptyEntry is packed.");
+	std::vector< EmptyEntry > empties;
+	read_chunk(file, "emp0", &empties);
+
 	if (file.peek() != EOF) {
 		std::cerr << "WARNING: trailing data in scene file '" << filename << "'" << std::endl;
 	}
+
+
 
 	//--------------------------------
 	//Now that file is loaded, create transforms for hierarchy entries:
@@ -412,9 +424,19 @@ void Scene::load(std::string const &filename,
 		std::string name = std::string(names.begin() + m.name_begin, names.begin() + m.name_end);
 
 		if (on_object) {
-			on_object(*this, hierarchy_transforms[m.transform], name);
+			on_object(*this, hierarchy_transforms[m.transform], &name);
 		}
 
+	}
+
+	for (auto const &e : empties) {
+		if (e.transform >= hierarchy_transforms.size()) {
+			throw std::runtime_error("scene file '" + filename + "' contains empty entry with invalid transform index (" + std::to_string(e.transform) + ")");
+		}
+
+		if (on_object) {
+			on_object(*this, hierarchy_transforms[e.transform], nullptr);
+		}
 	}
 
 	for (auto const &c : cameras) {
