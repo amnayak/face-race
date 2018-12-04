@@ -30,6 +30,8 @@ struct GameMode : public Mode {
 	//draw is called after update:
 	virtual void draw(glm::uvec2 const &drawable_size) override;
 
+	virtual void change_game_state();
+
 	UIElement *create_shapekey_deformer(
 		float size_scr,
 		ShapeKeyMesh *mesh,

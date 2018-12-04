@@ -61,6 +61,8 @@ uint32_t posedge_clock = 1;
 uint32_t state = WAIT_FOR_INPUT;
 uint32_t game_state = MENU;
 
+uint32_t states[] = {HAPPY, SAD, CONFUSED, SURPRISE};
+
 std::string happy_strs[] = {
 	"This is the best first date I've had in a while, thanks for being you",
 	"You're a really good listener, I appreciate that in a guy.",
@@ -75,8 +77,8 @@ std::string sad_strs[] = {
 };
 std::string conf_strs[] = {
 	"How would you implement image based lighting? What? Do you not usually talk about computer graphics on the first date?",
-"Would you rather eat ice cream with a fork or a knife?",
-"I like Fortnite. Wait-what do you mean you don't play Fortnite?"
+	"Would you rather eat ice cream with a fork or a knife?",
+	"I like Fortnite. Wait-what do you mean you don't play Fortnite?"
 };
 std::string supr_strs[] = {
 	"I just choked on my asparagus, oh my goodness.",
@@ -321,6 +323,19 @@ Load< GLuint > white_tex(LoadTagDefault, [](){
 	return new GLuint(tex);
 });
 
+
+void GameMode::change_game_state() {
+	game_state = states[rand() %4];
+	if (game_state == HAPPY) {
+		middle_text = happy_strs[rand()%4];
+	} else if (game_state == SAD) {
+		middle_text = sad_strs[rand()%3];
+	} else if (game_state == CONFUSED) {
+		middle_text = conf_strs[rand()%3];
+	} else if (game_state == SURPRISE) {
+		middle_text = supr_strs[rand()%4];
+	}
+}
 
 Scene::Transform *camera_parent_transform = nullptr;
 Scene::Camera *camera = nullptr;
