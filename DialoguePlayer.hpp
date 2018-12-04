@@ -28,7 +28,7 @@ class DialoguePlayer {
 
     std::vector <float> curr_weights; //face weights used to judge user
 
-    //inputs player choice
+    //inputs player choice, and changes score based on it
     bool makeChoice(uint32_t c);
 
     //set these to real values

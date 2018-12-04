@@ -36,16 +36,16 @@ state current_state = WAIT;
 Dialogue d = Dialogue();
 DialoguePlayer dp = DialoguePlayer(d);
 
-std::string goal_text = "";
-std::string points = "0";
-std::string game_status = "";
+std::string goal_text = "FACE RACE ;)"; //TODO: this text is just the player's goal, render this nicely
+std::string points = "0";  //TODO: this is the player's points, display this
+std::string game_status = ""; //TODO: render this nicely too, it's game over/ game start
 
 bool game_start = false;
 
 int player_choice = -1; //TODO
 
 //current value of the face mesh
-std::vector <float> player_face; //TODO lol how do you get this value
+std::vector <float> player_face; //TODO lol how do you get this value, this need to be set to whatver the current face is
 std::shared_ptr< Sound::PlayingSample > loop;
 
 Load< Sound::Sample > sample_lounge(LoadTagDefault, [](){
@@ -331,6 +331,9 @@ void GameMode::update(float elapsed) {
 								std::cout << "starting game" << std::endl;
 								goal_text = dp.playDialogue().text;
                                 loop = sample_lounge->play(glm::vec3(0.0f, 0.0f, 0.0f), 1.0f, Sound::Loop);
+                                game_status = "";
+            } else {
+                game_status = "Press SPACE to play";
             }
         } break;
         case CHALLENGE: {
@@ -352,6 +355,7 @@ void GameMode::update(float elapsed) {
             //update and display points?
 						std::cout << dp.matchesGoalFace() << std::endl;
 						std::cout << dp.player_points << " points" << std::endl;
+                        dp.makeChoice(player_choice);
 
             if (!dp.gameOver) {
                 updateRoundStartTime();
@@ -365,6 +369,7 @@ void GameMode::update(float elapsed) {
         case GAMEOVER: {
             //TODO: stuff
             //1. display that it's game over?
+            game_status = "GAME OVER";
 						std::cout << "game over" << std::endl;
 						std::cout << dp.player_points << " points" << std::endl;
         } break;
@@ -560,9 +565,9 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glDisable(GL_DEPTH_TEST);
 
 	font_times->screen_dim = drawable_size;
-	font_times->draw_ascii_string("Hello, world!  I am a font with kerning!", glm::vec2(0.2f, 0.8f), 64, 0.4f);
+	font_times->draw_ascii_string(goal_text.c_str(), glm::vec2(0.2f, 0.8f), 64, 0.4f);
 	font_arial->screen_dim = drawable_size;
-	font_arial->draw_ascii_string("The quick brown fox jumps over the lazy dog.", glm::vec2(0.2f, 0.5f), 64);
+	font_arial->draw_ascii_string(game_status.c_str(), glm::vec2(0.2f, 0.5f), 64);
 
 	assert (f != NULL);
 	//f->draw_face(, camera) TODO actually draw

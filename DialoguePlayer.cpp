@@ -35,6 +35,9 @@ Dialogue::Line DialoguePlayer::playDialogue() {
 bool DialoguePlayer::makeChoice(uint32_t c) {
     if (outstanding_choice) {
         choice_index = c;
+        if (c >= 0) {
+            player_points += dialogue.lines[line_number].choices[c].points;
+        }
         return true;
     }
     return false;

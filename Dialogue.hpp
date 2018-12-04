@@ -28,6 +28,8 @@ class Dialogue {
 
     void loadTestDialogue ();
 
+    void loadDateDialogue ();
+
     std::vector <float> HAPPY;
     std::vector <float> SAD;
 
