@@ -435,7 +435,7 @@ glm::vec3 soft_ray_isect(
 	if(abs(a_b * a_b - a_a * b_b) < 0.001f || a_a < 0.001f || b_b < 0.001f) {
 		// This technique throws out NaNs if a and b are close
 		// to colinear (this is a limitation discussed in the linked paper)
-		std::cout << "(no true isect)" << std::endl;
+		//std::cout << "(no true isect)" << std::endl;
 		glm::vec3 r = Bogn - Aogn;
 		return Aogn + std::max(0.f, glm::dot(Adir, r)) * Adir;
 	}
@@ -467,17 +467,17 @@ UIElement *GameMode::create_shapekey_deformer(
 	std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed,
 	std::function<glm::mat4()> mesh2world, std::function<glm::mat4()> world2mesh) {
 
-	auto mesh_to_uispace = [this](glm::vec3 const& pos, glm::mat4 const& m2w){
+	auto mesh_to_uispace = [](glm::vec3 const& pos, glm::mat4 const& m2w, glm::vec2 const& ws){
 		glm::vec2 clp = camera->world_to_clip(m2w * glm::vec4(pos, 1.f));
 		glm::vec2 scr = clp/2.f + glm::vec2(.5f,.5f);
 
-		scr.x *= window_size.x;
-		scr.y *= window_size.y;
+		scr.x *= ws.x;
+		scr.y *= ws.y;
 		return scr;
 	};
 	
 	UIBox *ret = new UIBox(
-		mesh_to_uispace(mesh->get_vertex(vertex), mesh2world()),
+		mesh_to_uispace(mesh->get_vertex(vertex), mesh2world(), window_size),
 		glm::vec2(size_scr,size_scr),
 		glm::vec4(1,1,1,0.7f));
 
@@ -491,9 +491,9 @@ UIElement *GameMode::create_shapekey_deformer(
     };
 
 	ret->onHover = [ret,vertex,value_changed,mesh,mesh_to_uispace,mesh2world,world2mesh,this](glm::vec2 const& m_, bool i) {
-		glm::vec3 cur = mesh->get_vertex(vertex); //model
+		glm::vec3 cur = mesh->get_vertex(vertex);
 		glm::mat4 m2w = mesh2world();
-		ret->pos = mesh_to_uispace(cur, m2w);
+		ret->pos = mesh_to_uispace(cur, m2w, window_size);
 
 		glm::vec2 m = glm::vec2(m_.x / window_size.x, m_.y / window_size.y);
 
@@ -582,8 +582,14 @@ UIElement *GameMode::create_shapekey_deformer(
             if(value_changed)
                 value_changed(vertex, cur_proj, nweights);
 
-            ret->pos = mesh_to_uispace(mesh->get_vertex(vertex), m2w);
+            ret->pos = mesh_to_uispace(mesh->get_vertex(vertex), m2w, window_size);
         }
+	};
+
+	ret->onResize = [mesh2world, vertex, mesh, ret, mesh_to_uispace](glm::vec2 const& old_size, glm::vec2 const& new_size){
+		glm::vec3 cur = mesh->get_vertex(vertex);
+		glm::mat4 m2w = mesh2world();
+		ret->pos = mesh_to_uispace(cur, m2w, new_size);
 	};
 
 	return ret;
@@ -592,12 +598,15 @@ UIElement *GameMode::create_shapekey_deformer(
 GameMode::GameMode(glm::uvec2 const& window_size) {
 	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
 
+	SDL_Event fake;
+	fake.type = SDL_WINDOWEVENT_RESIZED;
+
 	weights.resize(face->key_frames.size());
 	for(int x = 0; x < weights.size(); ++x) {
 		weights[x] = 0.f;
 		ui_elements.push_back(
 			UIElement::create_slider(
-				glm::vec2(250.f,window_size.y-10-x*25), 
+				glm::vec2(200.f,window_size.y-10-x*25), 
 				100, 10, 20, 
 				[x, this](float n){weights[x]=n;}, 
 				[x, this](){return weights[x];},
@@ -606,6 +615,9 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 				Middle
 				)
 			);
+		ui_elements[x]->handle_event(fake, window_size);
+		ui_elements[x]->enabled = false;
+		ui_elements[x]->name = "debug_slider";
 	}
 
 	const size_t num_deformers = 3;
@@ -619,7 +631,7 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 			deformer_weights[x][y] = 0.f;
 	}
 
-	for(int x =0; x < num_deformers; ++x) {
+	for(int x = 0; x < num_deformers; ++x) {
 		UIElement *deformer = create_shapekey_deformer(20, face, reference_vertices[x], 
 			[this, x](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
 				deformer_weights[x] = ws;
@@ -658,6 +670,25 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
         e.button.y = window_size.y - e.button.y;
+        break;//debug_slider
+        case SDL_KEYDOWN:
+        switch(evt.key.keysym.sym) {
+        	case SDLK_F3:
+        	if(SDL_GetModState() & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+        		debug_mode_enabled = !debug_mode_enabled;
+
+        		SDL_Event fake;
+        		fake.type = SDL_WINDOWEVENT_RESIZED;
+
+        		for(UIElement *cur : ui_elements) {
+        			if(cur->name == "debug_slider") {
+        				cur->enabled = debug_mode_enabled;
+        				cur->handle_event(fake, window_size);
+        			}
+        		}
+        	}
+        	break;
+        }
         break;
     }
 
@@ -669,7 +700,8 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
     }
 
 	for(UIElement *cur : ui_elements) {
-		cur->handle_event(e, window_size);
+		if(cur->enabled)
+			cur->handle_event(e, window_size);
 	}
 
 	return false;
@@ -683,7 +715,8 @@ void GameMode::update(float elapsed) {
 	timer += elapsed;
 
 	for(UIElement *cur : ui_elements) {
-		cur->update(elapsed);
+		if(cur->enabled)
+			cur->update(elapsed);
 	}
 
 	face_object->transform->position.z = 1;
@@ -968,49 +1001,52 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	glDisable(GL_DEPTH_TEST);
 
-	font_times->screen_dim = drawable_size;
-	
-	float ypos = drawable_size.y/2.f + (weights.size() * 50.f)/2.f;
-	for(int x = 0; x < weights.size(); ++x) {
-		font_times->draw_ascii_string(face->key_frames[x].name.c_str(), glm::vec2(10.f/drawable_size.x, ypos/drawable_size.y), 32, 0.8f);
-		ypos -= 50.f;
-	}
+	font_times->screen_dim = window_size;
 
     glm::mat4 id4(1);
     for(UIElement *cur : ui_elements) {
-		cur->draw(window_size, id4);
+    	if(cur->enabled)
+			cur->draw(window_size, id4);
 	}
 
-	glm::vec2 smpos = cur_mouse_pos;
-	smpos = smpos * ((float)drawable_size.x / (float)window_size.x);
-	float raw_depth = fbs.sample_depth((glm::uvec2)smpos);
-	glm::vec4 clip = glm::vec4((float)cur_mouse_pos.x/window_size.x*2.f-1.f, (float)cur_mouse_pos.y/window_size.y*2.f-1.f, raw_depth*2.f-1.f, 1.f);
-	glm::vec4 view = glm::inverse(camera->make_projection()) * clip;
-	view /= view.w;
-	glm::vec4 look_ = camera->transform->make_local_to_world() * view;
-	glm::vec3 look = glm::vec3(look_.x, look_.y, look_.z);
-	//std::cout << cur_mouse_pos.x << " " << cur_mouse_pos.y << " , " << clip.x << " " << clip.y << " " << clip.z << " , " << raw_depth << std::endl;
-
-	uint32_t min_vert;
-	glm::vec3 min_pos;
-	float min_d2 = 1e9;
-	glm::mat4 face2w = face_object->transform->make_local_to_world();
-	for(uint32_t x = 0; x < face->get_vertex_count(); ++x) {
-		glm::vec4 cur_ = face2w * glm::vec4(face->get_vertex(x), 1.f);
-		glm::vec3 cur = glm::vec3(cur_.x, cur_.y, cur_.z);
-		glm::vec3 dif = look - cur;
-		float d2 = glm::dot(dif,dif);
-		if(d2 < min_d2) {
-			min_vert = x;
-			min_d2 = d2;
-			min_pos = cur;
+	if(debug_mode_enabled) {
+		float ypos = window_size.y/2.f + (weights.size() * 25.f)/2.f;
+		for(int x = 0; x < weights.size(); ++x) {
+			font_times->draw_ascii_string(face->key_frames[x].name.c_str(), glm::vec2(10.f/window_size.x, ypos/window_size.y), 16, 0.8f);
+			ypos -= 25.f;
 		}
-	}
-	std::stringstream vertss;
-	vertss << "Pointed Vertex: " << min_vert << " [" << min_pos.x << ", " << min_pos.y << ", " << min_pos.z << "]";
-	font_times->draw_ascii_string(vertss.str().c_str(), glm::vec2(10.f/drawable_size.x, 1.f-50.f/drawable_size.y), 32);
 
-	suzanne_object->transform->position = look;//glm::vec3(0, 0.5f, 0.5f);
+		glm::vec2 smpos = cur_mouse_pos;
+		smpos = smpos * ((float)drawable_size.x / (float)window_size.x);
+		float raw_depth = fbs.sample_depth((glm::uvec2)smpos);
+		glm::vec4 clip = glm::vec4((float)cur_mouse_pos.x/window_size.x*2.f-1.f, (float)cur_mouse_pos.y/window_size.y*2.f-1.f, raw_depth*2.f-1.f, 1.f);
+		glm::vec4 view = glm::inverse(camera->make_projection()) * clip;
+		view /= view.w;
+		glm::vec4 look_ = camera->transform->make_local_to_world() * view;
+		glm::vec3 look = glm::vec3(look_.x, look_.y, look_.z);
+	
+		uint32_t min_vert;
+		glm::vec3 min_pos;
+		float min_d2 = 1e9;
+		glm::mat4 face2w = face_object->transform->make_local_to_world();
+		for(uint32_t x = 0; x < face->get_vertex_count(); ++x) {
+			glm::vec4 cur_ = face2w * glm::vec4(face->get_vertex(x), 1.f);
+			glm::vec3 cur = glm::vec3(cur_.x, cur_.y, cur_.z);
+			glm::vec3 dif = look - cur;
+			float d2 = glm::dot(dif,dif);
+			if(d2 < min_d2) {
+				min_vert = x;
+				min_d2 = d2;
+				min_pos = cur;
+			}
+		}
+		std::stringstream vertss;
+		vertss << "Pointed Vertex: " << min_vert << " [" << min_pos.x << ", " << min_pos.y << ", " << min_pos.z << "]";
+		font_times->draw_ascii_string(vertss.str().c_str(), glm::vec2(10.f/window_size.x, 1.f-25.f/window_size.y), 16);
+
+		// for debugging
+		//suzanne_object->transform->position = look;
+	}
 	suzanne_object->transform->scale = glm::vec3(0,0,0);//glm::vec3(0.2f, 0.2f, 0.2f);
 
 	glEnable(GL_DEPTH_TEST);

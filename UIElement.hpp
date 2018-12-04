@@ -36,6 +36,8 @@ public:
 
 	std::string name = "unnamed";
 
+	bool enabled = true; // if false, do not draw or update
+
 	UIElement(glm::vec2 pos, glm::vec2 size) : pos(pos), size(size) { }
 
 	virtual void handle_event(SDL_Event const &evt, glm::uvec2 const &window_size);

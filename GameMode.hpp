@@ -48,4 +48,6 @@ struct GameMode : public Mode {
 
 	Scene::Object *cube = nullptr;
 	std::vector<UIElement *> ui_elements;
+
+	bool debug_mode_enabled = false;
 };

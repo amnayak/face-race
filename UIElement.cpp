@@ -18,7 +18,6 @@ Load < UIProgram > ui_program(LoadTagDefault, []() {
     
     ret->u_projTrans = glGetUniformLocation(ret->program, "u_projTrans");
     ret->u_color     = glGetUniformLocation(ret->program, "u_color");
-    
 
     ret->in_position = glGetAttribLocation(ret->program, "position");
     ret->in_texcoord0 = glGetAttribLocation(ret->program, "texcoord0");
@@ -30,7 +29,7 @@ Load < GLuint > white_texture(LoadTagDefault, []() {
     GLuint *tex = new GLuint;
     glGenTextures(1, tex);
 
-    static glm::u8vec4 white(1, 1, 1, 1);
+    static glm::u8vec4 white(255, 255, 255, 255);
 
     glBindTexture(GL_TEXTURE_2D, *tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(white));
@@ -39,6 +38,8 @@ Load < GLuint > white_texture(LoadTagDefault, []() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    GL_ERRORS();
 
     return tex;
 });
@@ -52,8 +53,8 @@ UIBox::UIBox(glm::vec2 pos, glm::vec2 size, glm::vec4 color) : UIElement(pos, si
 
     GL_ERRORS();
     
-    glVertexAttribPointer(ui_program->in_position , 2, GL_FLOAT,         GL_FALSE, sizeof(button_vertex), (GLbyte *) 0 + offsetof(button_vertex, position));
-    glVertexAttribPointer(ui_program->in_texcoord0, 2, GL_FLOAT,         GL_FALSE, sizeof(button_vertex), (GLbyte *) 0 + offsetof(button_vertex, texcoord));
+    glVertexAttribPointer(ui_program->in_position , 2, GL_FLOAT, GL_FALSE, sizeof(button_vertex), (GLbyte *) 0 + offsetof(button_vertex, position));
+    glVertexAttribPointer(ui_program->in_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(button_vertex), (GLbyte *) 0 + offsetof(button_vertex, texcoord));
     glEnableVertexAttribArray(ui_program->in_position );
     glEnableVertexAttribArray(ui_program->in_texcoord0);
 
@@ -63,10 +64,10 @@ UIBox::UIBox(glm::vec2 pos, glm::vec2 size, glm::vec4 color) : UIElement(pos, si
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Only needs to be set once
-    verts_buf[0].texcoord = glm::vec2(0,0);
-    verts_buf[1].texcoord = glm::vec2(1,0);
-    verts_buf[2].texcoord = glm::vec2(1,1);
-    verts_buf[4].texcoord = glm::vec2(0,1);
+    verts_buf[0].texcoord = glm::vec2(0.f,0.f);
+    verts_buf[1].texcoord = glm::vec2(1.f,0.f);
+    verts_buf[2].texcoord = glm::vec2(1.f,1.f);
+    verts_buf[4].texcoord = glm::vec2(0.f,1.f);
 
     verts_buf[3] = verts_buf[2];
     verts_buf[5] = verts_buf[0];

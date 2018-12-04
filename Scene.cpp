@@ -217,11 +217,8 @@ void Scene::draw(Scene::Lamp const *lamp, Object::ProgramType program_type) cons
 void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_type) const {
 	assert(program_type < Object::ProgramTypes);
 
-	static bool b = false;
 
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
-		if(!b)
-			std::cout << object->transform->name << std::endl;
 		//don't draw if no program of this type attached to object:
 		if (object->programs[program_type].program == 0) continue;
 
@@ -270,7 +267,6 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 
 		glDepthMask(dm);
 	}
-	b = true;
 
 	//unbind any still bound textures and go back to active texture unit zero:
 	for (uint32_t i = 0; i < Object::ProgramInfo::TextureCount; ++i) {
