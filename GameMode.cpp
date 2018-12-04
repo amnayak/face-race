@@ -2,6 +2,13 @@
 
 #include "MenuMode.hpp"
 #include "Load.hpp"
+#include "cube_program.hpp"
+#include "cube_diffuse_program.hpp"
+#include "cube_reflect_program.hpp"
+#include "make_vao_for_program.hpp"
+#include "load_save_png.hpp"
+#include "rgbe.hpp"
+
 #include "MeshBuffer.hpp"
 #include "Scene.hpp"
 #include "gl_errors.hpp" //helper for dumpping OpenGL error messages
@@ -50,6 +57,104 @@ static MeshBuffer *suzanne_mesh;
 // Key: name of mesh
 // Value: index into meshes / meshes_for_***_program
 static std::map<std::string, unsigned short> mesh2idx;
+
+//load an rgbe cubemap texture:
+GLuint load_cube(std::string const &filename) {
+	//assume cube is stacked faces +x,-x,+y,-y,+z,-z:
+	glm::uvec2 size;
+	std::vector< glm::u8vec4 > data;
+	load_png(filename, &size, &data, LowerLeftOrigin);
+	if (size.y != size.x * 6) {
+		throw std::runtime_error("Expecting stacked faces in cubemap.");
+	}
+
+	//convert from rgb+exponent to floating point:
+	std::vector< glm::vec3 > float_data;
+	float_data.reserve(data.size());
+	for (auto const &px : data) {
+		float_data.emplace_back(rgbe_to_float(px));
+	}
+
+	//upload to cubemap:
+	GLuint tex = 0;
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
+	//the RGB9_E5 format is close to the source format and a lot more efficient to store than full floating point.
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 0*size.x*size.x);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 1*size.x*size.x);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 2*size.x*size.x);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 3*size.x*size.x);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 4*size.x*size.x);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB9_E5, size.x, size.x, 0, GL_RGB, GL_FLOAT, float_data.data() + 5*size.x*size.x);
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	//this will probably be ignored because of GL_TEXTURE_CUBE_MAP_SEAMLESS:
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+	//NOTE: turning this on to enable nice filtering at cube map boundaries:
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+	GL_ERRORS();
+
+	return tex;
+}
+
+Load< GLuint > sky_cube(LoadTagDefault, [](){
+	return new GLuint(load_cube(data_path("cape_hill_512.png")));
+});
+
+Load< GLuint > diffuse_cube(LoadTagDefault, [](){
+	return new GLuint(load_cube(data_path("cape_hill_diffuse.png")));
+});
+
+uint32_t cube_mesh_count = 0;
+Load< GLuint > cube_mesh_for_cube_program(LoadTagDefault, [](){
+	//mesh for showing cube map texture:
+	glm::vec3 v0(-1.0f,-1.0f,-1.0f);
+	glm::vec3 v1(+1.0f,-1.0f,-1.0f);
+	glm::vec3 v2(-1.0f,+1.0f,-1.0f);
+	glm::vec3 v3(+1.0f,+1.0f,-1.0f);
+	glm::vec3 v4(-1.0f,-1.0f,+1.0f);
+	glm::vec3 v5(+1.0f,-1.0f,+1.0f);
+	glm::vec3 v6(-1.0f,+1.0f,+1.0f);
+	glm::vec3 v7(+1.0f,+1.0f,+1.0f);
+
+	std::vector< glm::vec3 > verts{
+		v0,v1,v4, v4,v1,v5,
+		v0,v2,v1, v1,v2,v3,
+		v0,v4,v2, v2,v4,v6,
+		v7,v6,v5, v5,v6,v4,
+		v7,v5,v3, v3,v5,v1,
+		v7,v3,v6, v6,v3,v2
+	};
+
+	cube_mesh_count = verts.size();
+
+	//upload verts to GPU:
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(glm::vec3), verts.data(), GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	//create vertex array object describing layout (position is used as texture coordinate):
+	auto Position = MeshBuffer::Attrib(3, GL_FLOAT, MeshBuffer::Attrib::AsFloat, sizeof(glm::vec3), 0);
+	auto TexCoord = MeshBuffer::Attrib(3, GL_FLOAT, MeshBuffer::Attrib::AsFloat, sizeof(glm::vec3), 0);
+
+	std::vector< std::pair< char const *, MeshBuffer::Attrib const & > > attribs;
+	attribs.emplace_back("Position", Position);
+	attribs.emplace_back("TexCoord", TexCoord);
+
+	return new GLuint(make_vao_for_program(vbo, attribs.begin(), attribs.end(), cube_program->program, "cube_program"));
+});
 
 Load< std::vector<MeshBuffer *> > meshes(LoadTagDefault, [](){
 	std::vector<MeshBuffer *> *ret = new std::vector<MeshBuffer *>;
@@ -127,7 +232,7 @@ Load< GLuint > blur_program(LoadTagDefault, [](){
 		"void main() {\n"
 		"	vec2 at = (gl_FragCoord.xy - 0.5 * textureSize(tex, 0)) / textureSize(tex, 0).y;\n"
 		//make blur amount more near the edges and less in the middle:
-		"	float amt = (0.01 * textureSize(tex,0).y) * max(0.0,(length(at) - 0.3)/0.2);\n"
+		"	float amt = (0.005 * textureSize(tex,0).y) * max(0.0,(length(at) - 0.3)/0.2);\n"
 		//pick a vector to move in for blur using function inspired by:
 		//https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner
 		"	vec2 ofs = amt * normalize(vec2(\n"
@@ -307,6 +412,54 @@ Load< Scene > scene(LoadTagDefault, [](){
 
 });
 
+/* Intersects the rays A and B, and returns the point of intersection.
+ * If A and B do not intersect, returns the closest point on A to B.
+ * max_distance is the maximum distance from Aogn, along Adir, that
+ * may be returned.
+ */
+glm::vec3 soft_ray_isect(
+	glm::vec3 const& Aogn, glm::vec3 const& Adir, 
+	glm::vec3 const& Bogn, glm::vec3 const& Bdir,
+	float max_distance = std::numeric_limits<float>::infinity()) {
+	// ATTRIBUTION: Closest point between two rays
+	// http://morroworks.palitri.com/Content/Docs/Rays%20closest%20point.pdf
+	glm::vec3 const& a = Adir;
+	glm::vec3 const& b = Bdir;
+	glm::vec3 c = Bogn - Aogn;
+
+	float dist2 = glm::dot(c, c);
+	float a_b = glm::dot(a, b);
+	float b_b = glm::dot(b, b);
+	float a_a = glm::dot(a, a);
+
+	if(abs(a_b * a_b - a_a * b_b) < 0.001f || a_a < 0.001f || b_b < 0.001f) {
+		// This technique throws out NaNs if a and b are close
+		// to colinear (this is a limitation discussed in the linked paper)
+		std::cout << "(no true isect)" << std::endl;
+		glm::vec3 r = Bogn - Aogn;
+		return Aogn + std::max(0.f, glm::dot(Adir, r)) * Adir;
+	}
+
+	c /= glm::sqrt(dist2);
+
+	float b_c = glm::dot(b, c);
+	float a_c = glm::dot(a, c);
+
+	/* // Uncomment for debugging //
+	std::cout << "--------------------" << std::endl
+			  << "Aogn: " << glm::to_string(Aogn) << std::endl
+			  << "Bogn: " << glm::to_string(Bogn) << std::endl
+			  << "Adir: " << glm::to_string(Adir) << std::endl
+			  << "Bdir: " << glm::to_string(Bdir) << std::endl
+			  << "denm: " << (a_a * b_b - a_b * a_b) << std::endl
+			  << "a_a:  " << a_a << std::endl
+			  << "b_b:  " << b_b << std::endl;
+	*/
+
+	float d = -(a_b * b_c + a_c * b_b) / (a_a * b_b - a_b * a_b);
+	return Aogn + Adir * std::max(0.f, d);
+}
+
 UIElement *GameMode::create_shapekey_deformer(
 	float size_scr,
 	ShapeKeyMesh *mesh,
@@ -349,28 +502,18 @@ UIElement *GameMode::create_shapekey_deformer(
 
 			glm::mat4 w2m = world2mesh();
 			glm::mat4 camera_l2w = camera->transform->make_local_to_world();
-			glm::mat4 camera_w2l = camera->transform->make_world_to_local();
+			//glm::mat4 camera_w2l = camera->transform->make_world_to_local();
 
 			glm::vec4 cam4 = w2m * camera_l2w * glm::vec4(0.f, 0.f, 0.f, 1.f);
 			cam4 /= cam4.w;
 			glm::vec3 cam3 = glm::vec3(cam4);
-			glm::vec4 cur_cam = camera_w2l * m2w * glm::vec4(cur, 1.f);
-			float dist = glm::length(cur - cam3) / fabs(cur_cam.z);
+			//glm::vec4 cur_cam = camera_w2l * m2w * glm::vec4(cur, 1.f);
+			//float dist = glm::length(cur - cam3) / fabs(cur_cam.z);
 
-			glm::vec2 mm = m * 2.f - 1.f;
-			glm::vec4 oray = glm::vec4(camera->generate_ray(mm), 0.f);
-			glm::vec4 ray4 = w2m * camera_l2w * oray;
-			glm::vec3 ray = glm::normalize(ray4);
-
-			glm::vec3 target = glm::vec3(cam4) + ray * dist;
-
-			auto closest_on_target_ray = [ray,cam3](glm::vec3 const& pt) {
-				glm::vec3 r = pt - cam3;
-				return cam3 + (glm::dot(ray, r) * ray);
-			};
-
-			glm::vec3 cur_proj = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
-			glm::vec3 rem = target - cur_proj;
+			glm::vec2 const mm = m * 2.f - 1.f;
+			glm::vec4 const oray = glm::vec4(camera->generate_ray(mm), 0.f);
+			glm::vec4 const ray4 = w2m * camera_l2w * oray;
+			glm::vec3 const ray = glm::normalize(ray4);
 
 			/* // Uncomment for coordinate space debuging //
 			std::cout << "-----------" << std::endl 
@@ -386,36 +529,51 @@ UIElement *GameMode::create_shapekey_deformer(
 					<< "rem:  " << glm::to_string(rem) << std::endl;
 			*/
 
+			glm::vec3 const ref = mesh->vertex_buf[mesh->reference_key.start_vertex + vertex];
+			glm::vec3 cur_proj = ref;
+
 			// Gram schmidt
 			for(int x = 0; x < mesh->key_frames.size(); ++x) {
 				// Get range of movement for this key
-				glm::vec3 key = mesh->vertex_buf[mesh->key_frames[x].start_vertex + vertex];
-				glm::vec3 kv = key - cur_proj;
+				glm::vec3 const key = mesh->vertex_buf[mesh->key_frames[x].start_vertex + vertex];
+				glm::vec3 const ref2key = key - ref;
+				glm::vec3 const cur2key = key - cur_proj;
 
 				// Project range of movement on the target
-				float dkv = glm::dot(kv, kv);
-				float a;
-				
-				if(dkv > 0.0001f)
-					a = glm::dot(kv, rem) / dkv;
+				float d2_cur2key = glm::dot(cur2key, cur2key);
+				float d2_ref2key = glm::dot(ref2key, ref2key);
+
+				if(d2_cur2key > 0.001f && d2_ref2key > 0.001f) {
+					// Instead of subtracting the projection directly like normal gram-schmidt,
+					// we reproject the current point onto the camera ray to find the closest point
+					// on the ray.  We do this because we don't actually want the target vertex to
+					// move to the originally-calculated target; we instead want the target vertex
+					// to move to the camera ray.  The closest point on the camera ray changes as
+					// gram-schmidt proceeds, so we need to readjust.
+					float d_ref2key = glm::sqrt(d2_ref2key);
+					glm::vec3 target = soft_ray_isect(cur_proj, ref2key / d_ref2key, cam3, ray, d_ref2key);
+					glm::vec3 r = target - cam3;
+					target = cam3 + std::max(0.f, glm::dot(ray, r)) * ray;
+
+					/* // uncomment for debugging //
+					std::cout << "key: " << mesh->key_frames[x].name << std::endl
+							  << "cur: " << glm::to_string(cur_proj) << std::endl
+							  << "tar: " << glm::to_string(target) << std::endl
+							  << "r2k: " << glm::to_string(ref2key) << std::endl << std::endl;
+					*/
+					glm::vec3 cur2tar = target - cur_proj;
+
+					float a = glm::dot(cur2tar, ref2key) / glm::dot(ref2key, ref2key);
+					a = std::max(0.f, std::min(1.f, a));
+
+					glm::vec3 proj = a * ref2key;
+					// "Subtract" projection from remainder & set weight
+					cur_proj += proj;
+					
+					nweights[x] = a;
+				}
 				else
-					a = 0;
-
-				a = std::max(0.f, std::min(1.f, a));
-				glm::vec3 proj = a * rem;
-
-				// "Subtract" projection from remainder & set weight
-				// Instead of subtracting the projection directly like normal gram-schmidt,
-				// we reproject the current point onto the camera ray to find the closest point
-				// on the ray.  We do this because we don't actually want the target vertex to
-				// move to the originally-calculated target; we instead want the target vertex
-				// to move to the camera ray.  The closest point on the camera ray changes as
-				// gram-schmidt proceeds, so we need to readjust.
-				cur_proj += proj;
-				target = closest_on_target_ray(cur_proj);
-				rem = target - cur_proj;
-				
-				nweights[x] = a;
+					nweights[x] = 0;
 			}
 
             if(value_changed)
@@ -447,9 +605,9 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 			);
 	}
 
-	const size_t num_deformers = 2;
+	const size_t num_deformers = 3;
 	std::array<size_t, num_deformers> reference_vertices = {
-		1300, 9
+		1300, 216, 250
 	};
 	static std::array<std::vector<float>, num_deformers> deformer_weights;
 	for(int x = 0; x < num_deformers; ++x) {
@@ -704,7 +862,7 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 
 	camera->aspect = drawable_size.x / float(drawable_size.y);
 
-	glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//set up basic OpenGL state:
@@ -717,11 +875,11 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glUseProgram(texture_program->program);
 
 	//don't use distant directional light at all (color == 0):
-	glUniform3fv(texture_program->sun_color_vec3, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 0.0f)));
-	glUniform3fv(texture_program->sun_direction_vec3, 1, glm::value_ptr(glm::normalize(glm::vec3(0.0f, 0.0f,-1.0f))));
-	//use hemisphere light for subtle ambient light:
-	glUniform3fv(texture_program->sky_color_vec3, 1, glm::value_ptr(glm::vec3(0.2f, 0.2f, 0.3f)));
-	glUniform3fv(texture_program->sky_direction_vec3, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 1.0f)));
+	// glUniform3fv(texture_program->sun_color_vec3, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 0.0f)));
+	// glUniform3fv(texture_program->sun_direction_vec3, 1, glm::value_ptr(glm::normalize(glm::vec3(0.0f, 0.0f,-1.0f))));
+	// //use hemisphere light for subtle ambient light:
+	// glUniform3fv(texture_program->sky_color_vec3, 1, glm::value_ptr(glm::vec3(0.2f, 0.2f, 0.3f)));
+	// glUniform3fv(texture_program->sky_direction_vec3, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 1.0f)));
 
 	glm::mat4 world_to_spot =
 		//This matrix converts from the spotlight's clip space ([-1,1]^3) into depth map texture coordinates ([0,1]^2) and depth map Z values ([0,1]):
@@ -741,8 +899,8 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glUniform3fv(texture_program->spot_direction_vec3, 1, glm::value_ptr(-glm::vec3(spot_to_world[2])));
 	glUniform3fv(texture_program->spot_color_vec3, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
 
-	glm::vec2 spot_outer_inner = glm::vec2(std::cos(0.5f * spot->fov), std::cos(0.85f * 0.5f * spot->fov));
-	glUniform2fv(texture_program->spot_outer_inner_vec2, 1, glm::value_ptr(spot_outer_inner));
+	// glm::vec2 spot_outer_inner = glm::vec2(std::cos(0.5f * spot->fov), std::cos(0.85f * 0.5f * spot->fov));
+	// glUniform2fv(texture_program->spot_outer_inner_vec2, 1, glm::value_ptr(spot_outer_inner));
 
 	//This code binds texture index 1 to the shadow map:
 	// (note that this is a bit brittle -- it depends on none of the objects in the scene having a texture of index 1 set in their material data; otherwise scene::draw would unbind this texture):
@@ -754,6 +912,35 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	//NOTE: however, these are parameters of the texture object, not the binding point, so there is no need to set them *each frame*. I'm doing it here so that you are likely to see that they are being set.
 	glActiveTexture(GL_TEXTURE0);
 
+	{ //draw the sky by drawing the cube centered at the camera:
+		glDisable(GL_DEPTH_TEST); //don't write to depth buffer
+		//only render the back of the cube:
+		glDisable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+
+		glUseProgram(cube_program->program);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, *sky_cube);
+
+		//make a matrix that acts as if the camera is at the origin:
+		glm::mat4 world_to_camera = camera->transform->make_world_to_local();
+		world_to_camera[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		glm::mat4 world_to_clip = camera->make_projection() * world_to_camera;
+		glm::mat4 object_to_clip = world_to_clip;
+
+		glUniformMatrix4fv(cube_program->object_to_clip_mat4, 1, GL_FALSE, glm::value_ptr(object_to_clip));
+
+		glBindVertexArray(*cube_mesh_for_cube_program);
+
+		glDrawArrays(GL_TRIANGLES, 0, cube_mesh_count);
+
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+		//reset state:
+		glEnable(GL_DEPTH_TEST);
+		//glDisable(GL_CULL_FACE);
+		//glCullFace(GL_BACK);
+	}
 	scene->draw(camera);
 
 	glActiveTexture(GL_TEXTURE1);

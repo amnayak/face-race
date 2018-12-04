@@ -46,5 +46,6 @@ struct GameMode : public Mode {
 	glm::uvec2 window_size;
 	glm::uvec2 cur_mouse_pos;
 
+	Scene::Object *cube = nullptr;
 	std::vector<UIElement *> ui_elements;
 };

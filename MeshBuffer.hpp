@@ -48,13 +48,31 @@ struct MeshBuffer {
 	struct Attrib {
 		GLint size = 0;
 		GLenum type = 0;
-		GLboolean normalized = GL_FALSE;
+		enum Interpretation : uint8_t {
+			AsFloat, //glVertexAttribPointer with normalized as GL_FALSE
+			AsFloatFromFixedPoint, //glVertexAttribPointer with normalized as GL_TRUE
+			AsInteger //glVertexAttribIPointer
+		} interpretation;
 		GLsizei stride = 0;
 		GLsizei offset = 0;
 
 		Attrib() = default;
-		Attrib(GLint size_, GLenum type_, GLboolean normalized_, GLsizei stride_, GLsizei offset_)
-		: size(size_), type(type_), normalized(normalized_), stride(stride_), offset(offset_) { }
+		Attrib(GLint size_, GLenum type_, Interpretation interpretation_, GLsizei stride_, GLsizei offset_)
+		: size(size_), type(type_), interpretation(interpretation_), stride(stride_), offset(offset_) { }
+		
+		//call the proper glVertexAttrib*Pointer variant:
+		void VertexAttribPointer(GLint location) const {
+			if (interpretation == AsFloat) {
+				glVertexAttribPointer(location, size, type, GL_FALSE, stride, (GLbyte *)0 + offset);
+			} else if (interpretation == AsFloatFromFixedPoint) {
+				glVertexAttribPointer(location, size, type, GL_TRUE, stride, (GLbyte *)0 + offset);
+			} else if (interpretation == AsInteger) {
+				glVertexAttribIPointer(location, size, type, stride, (GLbyte *)0 + offset);
+			} else {
+				assert(0 && "Invalid interpretation.");
+			}
+		}
+
 	};
 
 	Attrib Position;

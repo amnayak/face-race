@@ -73,7 +73,11 @@ CLIENT_NAMES =
 	data_path
 	compile_program
 	vertex_color_program
+	bone_vertex_color_program
 	texture_program
+	cube_program
+	cube_diffuse_program
+	cube_reflect_program
 	depth_program
 	Scene
 	Mode

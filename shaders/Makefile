@@ -15,7 +15,13 @@ all : \
 	$(DIST)/vert_depth.glsl \
 	$(DIST)/frag_depth.glsl \
 	$(DIST)/vert_uielement.glsl \
-	$(DIST)/frag_uielement.glsl
+	$(DIST)/frag_uielement.glsl \
+	$(DIST)/vert_cube_map.glsl \
+	$(DIST)/frag_cube_map.glsl \
+	$(DIST)/vert_cube_diffuse.glsl \
+	$(DIST)/frag_cube_diffuse.glsl \
+	$(DIST)/vert_cube_reflect.glsl \
+	$(DIST)/frag_cube_reflect.glsl
 
 $(DIST):
 	$(MKDIR_P) $(DIST)
