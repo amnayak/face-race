@@ -1310,27 +1310,32 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 		glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
 		font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
 
-		if(debug_mode_enabled) {
+		{//if(debug_mode_enabled) {
 			std::string expression_text = "Expression: ";
-			switch(current_expression) {
-				case HAPPY:
-				expression_text += "HAPPY";
-				break;
-				case SAD:
-				expression_text += "SAD";
-				break;
-				case CONFUSED:
-				expression_text += "CONFUSED";
-				break;
-				case SURPRISE:
-				expression_text += "SURPRISED";
-				break;
-				default:
-				expression_text += "NEUTRAL";
-				break;
-			}
+			auto expr2str = [](size_t expr) {
+				switch(expr) {
+					case HAPPY:
+					return "HAPPY";
+					break;
+					case SAD:
+					return "SAD";
+					break;
+					case CONFUSED:
+					return "CONFUSED";
+					break;
+					case SURPRISE:
+					return "SURPRISED";
+					break;
+					default:
+					return "NEUTRAL";
+					break;
+				}
+			};
+			expression_text += std::string(expr2str(current_expression));
+			expression_text += "\nTry to look " + std::string(expr2str(game_state));
+
 			size = font_noto_it->string_dims(expression_text.c_str(), 16, 0.8);
-			font_noto_it->draw_ascii_string(expression_text.c_str(), glm::vec2(.5f - size.x / 2.f, .8f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
+			font_noto_it->draw_ascii_string(expression_text.c_str(), glm::vec2(.5f - size.x / 2.f, .9f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
 		}
 	}
 
