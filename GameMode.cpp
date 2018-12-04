@@ -45,6 +45,13 @@ uint32_t GAME_OVER = 0;
 uint32_t WAIT_FOR_INPUT = 1;
 uint32_t CHECK = 3;
 
+const uint32_t MENU = 5;
+const uint32_t HAPPY = 6;
+const uint32_t SAD = 7;
+const uint32_t CONFUSED = 8;
+const uint32_t SURPRISE = 9;
+const uint32_t NEUTRAL = 10;
+
 bool did_happy = false;
 bool happy = false;
 bool sad = false;
@@ -52,6 +59,7 @@ bool gg = false;
 
 uint32_t posedge_clock = 1;
 uint32_t state = WAIT_FOR_INPUT;
+uint32_t game_state = MENU;
 
 static MeshBuffer *suzanne_mesh;
 // Key: name of mesh
@@ -222,7 +230,8 @@ GLuint load_texture(std::string const &filename) {
 	GLuint tex = 0;
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
+	//// new load texture with alpha based on font
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -241,6 +250,35 @@ Load< GLuint > wood_tex(LoadTagDefault, [](){
 Load< GLuint > marble_tex(LoadTagDefault, [](){
 	return new GLuint(load_texture(data_path("textures/marble.png")));
 });
+
+Load< GLuint > start_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/start.png")));
+});
+
+Load< GLuint > logo_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/logo_transparent.png")));
+});
+
+Load< GLuint > neutral_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/neutral_face.png")));
+});
+
+Load< GLuint > smile_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/happy_face.png")));
+});
+
+Load< GLuint > sad_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/sad_face.png")));
+});
+
+Load< GLuint > surprise_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/surprise_face.png")));
+});
+
+Load< GLuint > confuse_tex(LoadTagDefault, [](){
+	return new GLuint(load_texture(data_path("textures/confused_face.png")));
+});
+
 
 Load< GLuint > white_tex(LoadTagDefault, [](){
 	GLuint tex = 0;
@@ -368,6 +406,60 @@ Load< Scene > scene(LoadTagDefault, [](){
 	return ret;
 
 });
+
+UIElement *GameMode::create_prompt(glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name) {
+	UIBox *ret = new UIBox(
+		loc,
+		size,
+		glm::vec4(1,1,1,1.0f));
+	ret->tex = tex;
+	ret->name = name;
+
+    ret->onResize = [ret](glm::vec2 const& old_size, glm::vec2 const& new_size){
+		glm::vec2 old_loc = glm::vec2(ret->pos.x / old_size.x, ret->pos.y / old_size.y);
+		glm::vec2 old_hw = glm::vec2(ret->size.x / old_size.x, ret->size.y / old_size.y);
+		glm::vec2 loc = glm::vec2(new_size.x*old_loc.x, new_size.y*old_loc.y);
+		glm::vec2 size = glm::vec2(new_size.x*old_hw.x, new_size.y*old_hw.y);
+		ret->pos = loc;
+		ret->size = size;
+	};
+	return ret;
+}
+
+UIElement *GameMode::create_button(glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name) {
+	UIBox *ret = new UIBox(
+		loc,
+		size,
+		glm::vec4(1,1,1,1.0f));
+	ret->tex = tex;
+	ret->name = name;
+	ret->onMouseDown = [ret](glm::vec2 const& m, bool i, int b) {
+        if(i) UIElement::ui_element_focused = (UIElement *)ret;
+        std::cout << "start down" << std::endl;
+        game_state = HAPPY;
+    };
+
+    ret->onMouseUp = [ret](glm::vec2 const& m, bool i, int b) {
+        if((UIElement *)ret == UIElement::ui_element_focused) 
+            UIElement::ui_element_focused = nullptr;
+    };
+
+    ret->onResize = [ret](glm::vec2 const& old_size, glm::vec2 const& new_size){
+		glm::vec2 old_loc = glm::vec2(ret->pos.x / old_size.x, ret->pos.y / old_size.y);
+		glm::vec2 old_hw = glm::vec2(ret->size.x / old_size.x, ret->size.y / old_size.y);
+		glm::vec2 loc = glm::vec2(new_size.x*old_loc.x, new_size.y*old_loc.y);
+		glm::vec2 size = glm::vec2(new_size.x*old_hw.x, new_size.x*old_hw.x);
+		ret->pos = loc;
+		ret->size = size;
+	};
+	return ret;
+}
 
 /* Intersects the rays A and B, and returns the point of intersection.
  * If A and B do not intersect, returns the closest point on A to B.
@@ -616,7 +708,40 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 		text_bg->pos.y = nxt.y * .2f;
 		text_bg->size.x = nxt.x;
 	};
+	text_bg->name = "text_bg";
 	ui_elements.push_back(text_bg);
+
+	/* Emotion prompt */
+	glm::vec2 loc = glm::vec2(window_size.x/2.0f, window_size.y*2.0f/3.0f);
+	glm::vec2 size = glm::vec2(window_size.x/2.5f, window_size.x/2.5f);
+
+	UIElement *logo = create_prompt(loc, size, *logo_tex, "logo");
+	ui_elements.push_back(logo);
+
+	loc.y = window_size.y/6.0f;
+	size = glm::vec2(window_size.x/4.0f, window_size.x/4.0f);
+	UIElement *start = create_button(loc, size, *start_tex, "start");
+	ui_elements.push_back(start);
+
+	{
+		loc = glm::vec2(3*window_size.x/4.0f, 3*window_size.y/4.0f);
+		size = glm::vec2(window_size.x/8.0f, window_size.x/8.0f);
+		UIElement *neutral = create_prompt(loc, size, *neutral_tex, "neutral");
+		neutral->enabled = false;
+		UIElement *happy = create_prompt(loc, size, *smile_tex, "happy");
+		happy->enabled = false;
+		UIElement *sad = create_prompt(loc, size, *sad_tex, "sad");
+		sad->enabled = false;
+		UIElement *confuse = create_prompt(loc, size, *confuse_tex, "confuse");
+		confuse->enabled = false;
+		UIElement *surprise = create_prompt(loc, size, *surprise_tex, "surprise");
+		surprise->enabled = false;
+		ui_elements.push_back(neutral);
+		ui_elements.push_back(happy);
+		ui_elements.push_back(sad);
+		ui_elements.push_back(confuse);
+		ui_elements.push_back(surprise);
+	}
 
 	this->window_size = window_size;
 }
@@ -668,8 +793,10 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
     }
 
 	for(UIElement *cur : ui_elements) {
-		if(cur->enabled)
+		if(cur->enabled) {
 			cur->handle_event(e, window_size);
+		}
+
 	}
 
 	return false;
@@ -681,9 +808,18 @@ void GameMode::update(float elapsed) {
 
 	static float timer = 0;
 	timer += elapsed;
-
+	// std::cout << game_state << std::endl;
 	for(UIElement *cur : ui_elements) {
-		if(cur->enabled)
+		if (cur->name== "logo") cur->enabled = game_state == MENU;
+		if (cur->name== "start") cur->enabled = game_state == MENU;
+		if (cur->name== "neutral") cur->enabled = game_state == NEUTRAL;
+		if (cur->name== "happy") cur->enabled = game_state == HAPPY;
+		if (cur->name== "sad") cur->enabled = game_state == SAD;
+		if (cur->name== "confuse") cur->enabled = game_state == CONFUSED;
+		if (cur->name== "surprise") cur->enabled = game_state == SURPRISE;
+		if (cur->name== "text_bg") cur->enabled = game_state != MENU;
+
+		if(cur->enabled) 
 			cur->update(elapsed);
 	}
 
@@ -987,9 +1123,11 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 			cur->draw(window_size, id4);
 	}
 
-	std::string middle_text = "This is a test of the quote system.  Lorem ipsum dolor etc etc i dont know it should wrap";
-	glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
-	font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
+	if(game_state != MENU) {
+		std::string middle_text = "This is a test of the quote system.  Lorem ipsum dolor etc etc i dont know it should wrap";
+		glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
+		font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
+	}
 
 	if(debug_mode_enabled) {
 		float ypos = window_size.y/2.f + (weights.size() * 25.f)/2.f;

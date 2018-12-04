@@ -35,6 +35,7 @@ public:
 	glm::vec2 size; // dims
 
 	std::string name = "unnamed";
+	GLuint tex;
 
 	bool enabled = true; // if false, do not draw or update
 
