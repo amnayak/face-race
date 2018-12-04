@@ -15,7 +15,7 @@
 #include "depth_program.hpp"
 #include "Font.hpp"
 #include "DialoguePlayer.hpp"
-
+#include "Sound.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -46,6 +46,11 @@ int player_choice = -1; //TODO
 
 //current value of the face mesh
 std::vector <float> player_face; //TODO lol how do you get this value
+std::shared_ptr< Sound::PlayingSample > loop;
+
+Load< Sound::Sample > sample_lounge(LoadTagDefault, [](){
+	return new Sound::Sample(data_path("sound/lounge_bg.wav"));
+});
 
 Load< MeshBuffer > meshes(LoadTagDefault, [](){
 	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
@@ -325,6 +330,7 @@ void GameMode::update(float elapsed) {
                 updateRoundStartTime();
 								std::cout << "starting game" << std::endl;
 								goal_text = dp.playDialogue().text;
+                                loop = sample_lounge->play(glm::vec3(0.0f, 0.0f, 0.0f), 1.0f, Sound::Loop);
             }
         } break;
         case CHALLENGE: {
