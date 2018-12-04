@@ -9,6 +9,7 @@ TextureProgram::TextureProgram() {
 	object_to_clip_mat4 = glGetUniformLocation(program, "object_to_clip");
 	object_to_light_mat4x3 = glGetUniformLocation(program, "object_to_light");
 	normal_to_light_mat3 = glGetUniformLocation(program, "normal_to_light");
+	world_to_clip_mat4 = glGetUniformLocation(program, "world_to_clip");
 
 	sun_direction_vec3 = glGetUniformLocation(program, "sun_direction");
 	sun_color_vec3 = glGetUniformLocation(program, "sun_color");

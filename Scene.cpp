@@ -247,6 +247,9 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 		if (info.itmv_mat3 != -1U) {
 			glUniformMatrix3fv(info.itmv_mat3, 1, GL_FALSE, glm::value_ptr(itmv));
 		}
+		if (info.wtcl_mat4 != -1U) {
+			glUniformMatrix4fv(info.wtcl_mat4, 1, GL_FALSE, glm::value_ptr(world_to_clip));
+		}
 
 		GL_ERRORS();
 

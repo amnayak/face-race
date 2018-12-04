@@ -7,7 +7,7 @@
 				"jam -d x"
 			],
 			"name": "face-race",
-			"selector": "source.c++",
+			"selector": "source",
 			"shell": true,
 			"variants":
 			[

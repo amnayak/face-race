@@ -205,8 +205,8 @@ Load< GLuint > empty_vao(LoadTagDefault, [](){
 	return new GLuint(vao);
 });
 
-MLoad< Font > font_arial(LoadTagDefault, [](){
-	return new Font("fonts/arial.fnt", glm::vec2(640, 480));
+MLoad< Font > font_noto_it(LoadTagDefault, [](){
+	return new Font("fonts/noto_italic.fnt", glm::vec2(640, 480));
 });
 
 MLoad< Font > font_times(LoadTagDefault, [](){
@@ -276,6 +276,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 	texture_program_info.mvp_mat4  = texture_program->object_to_clip_mat4;
 	texture_program_info.mv_mat4x3 = texture_program->object_to_light_mat4x3;
 	texture_program_info.itmv_mat3 = texture_program->normal_to_light_mat3;
+	texture_program_info.wtcl_mat4 = texture_program->world_to_clip_mat4;
 
 	Scene::Object::ProgramInfo depth_program_info;
 	depth_program_info.program = depth_program->program;
@@ -605,6 +606,17 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 		deformer->name = "deformer";
 		ui_elements.push_back(deformer);
 	}
+
+	UIBox *text_bg = new UIBox(
+		glm::vec2(window_size.x / 2.f, window_size.y * .2f),
+		glm::vec2(window_size.x, 50.f),
+		glm::vec4(0,0,0,.5f));
+	text_bg->onResize = [text_bg](glm::vec2 const& old, glm::vec2 const& nxt) {
+		text_bg->pos.x = nxt.x / 2.f;
+		text_bg->pos.y = nxt.y * .2f;
+		text_bg->size.x = nxt.x;
+	};
+	ui_elements.push_back(text_bg);
 
 	this->window_size = window_size;
 }
@@ -967,12 +979,17 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	glDisable(GL_DEPTH_TEST);
 
 	font_times->screen_dim = window_size;
+	font_noto_it->screen_dim = window_size;
 
     glm::mat4 id4(1);
     for(UIElement *cur : ui_elements) {
     	if(cur->enabled)
 			cur->draw(window_size, id4);
 	}
+
+	std::string middle_text = "This is a test of the quote system.  Lorem ipsum dolor etc etc i dont know it should wrap";
+	glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
+	font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
 
 	if(debug_mode_enabled) {
 		float ypos = window_size.y/2.f + (weights.size() * 25.f)/2.f;

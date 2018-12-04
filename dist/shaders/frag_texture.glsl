@@ -13,6 +13,7 @@ uniform samplerCube ibl;
 
 in vec3 position;
 in vec3 normal;
+in vec3 clipNormal;
 in vec4 color;
 in vec2 texCoord;
 in vec4 spotPosition;
@@ -22,11 +23,17 @@ out vec4 fragColor;
 void main() {
 	vec3 total_light = vec3(0.0, 0.0, 0.0);
 	vec3 n = normalize(normal);
+	vec3 cn = normalize(clipNormal);
 	{ //sky (IBL) light:
 		vec3 light = texture(ibl, normal).rgb;
 		vec3 col = color.rgb * light;
 		vec3 contrib = vec3(pow(col.r,0.45), pow(col.g,0.45), pow(col.b,0.45));
-		total_light += 0.8 * contrib;
+		
+		float rim = 1.0 - abs(cn.z);
+		rim = clamp((rim - 0.4)/0.6, 0.0, 1.0);
+		rim = pow(rim, 4.5);
+		
+		total_light += 0.6 * contrib + 0.8 * rim * vec3(1.0, 0.94, 0.69);
 	}
 	{ //sun (directional) light:
 		// vec3 l = sun_direction;
@@ -34,13 +41,13 @@ void main() {
 		// total_light += nl * sun_color;
 	}
 	{ //spot (point with fov + shadow map) light:
-		vec3 l = normalize(spot_position - position);
-		float nl = max(0.0, dot(n,l));
-		// TODO: look up shadow map
-		float d = dot(l,-spot_direction);
-		float amt = smoothstep(spot_outer_inner.x, spot_outer_inner.y, d);
-		float shadow = textureProj(spot_depth_tex, spotPosition);
-		total_light += 0.4 * shadow * nl * amt * spot_color;
+		// vec3 l = normalize(spot_position - position);
+		// float nl = max(0.0, dot(n,l));
+		// // TODO: look up shadow map
+		// float d = dot(l,-spot_direction);
+		// float amt = smoothstep(spot_outer_inner.x, spot_outer_inner.y, d);
+		// float shadow = textureProj(spot_depth_tex, spotPosition);
+		// total_light += 0.4 * shadow * nl * amt * spot_color;
 		//fragColor = vec4(s,s,s, 1.0); //DEBUG: just show shadow
 	}
 	fragColor = texture(tex, texCoord) * vec4(color.rgb * total_light, color.a);

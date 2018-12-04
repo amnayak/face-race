@@ -132,6 +132,9 @@ public:
 	// width: overflow past this width
 	void draw_ascii_string(const char *text, glm::vec2 pos, float size = 0, float width = 0);
 
+	float char_width(unsigned short c, float size = 0);
+	glm::vec2 string_dims(const char *text, float size = 0, float width = 0);
+
 private:
 	struct font_vertex {
 		glm::vec3 position;
