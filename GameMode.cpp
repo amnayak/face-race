@@ -328,8 +328,13 @@ Load< Scene > scene(LoadTagDefault, [](){
 	names.push_back(data_path("face.scene"));
 
 	//load transform hierarchy:
-	ret->load(names, [&](Scene &s, Scene::Transform *t, std::string const &m){
+	ret->load(names, [&](Scene &s, Scene::Transform *t, std::string const *m_){
 		Scene::Object *obj = s.new_object(t);
+
+		if(m_ == nullptr)
+			return;
+
+		std::string const &m = *m_;
 
 		obj->programs[Scene::Object::ProgramTypeDefault] = texture_program_info;
 		if (t->name == "Platform") {
@@ -803,7 +808,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 void GameMode::update(float elapsed) {
-	camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
+	//camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 
 	static float timer = 0;
@@ -818,6 +823,7 @@ void GameMode::update(float elapsed) {
 		if (cur->name== "confuse") cur->enabled = game_state == CONFUSED;
 		if (cur->name== "surprise") cur->enabled = game_state == SURPRISE;
 		if (cur->name== "text_bg") cur->enabled = game_state != MENU;
+		if (cur->name== "deformer") cur->enabled = game_state != MENU;
 
 		if(cur->enabled) 
 			cur->update(elapsed);

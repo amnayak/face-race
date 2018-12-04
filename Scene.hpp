@@ -206,9 +206,9 @@ struct Scene {
 	//add transforms/objects/cameras from a scene file:
 	// the 'on_object' callback gives you a chance to look up a mesh by name and make an object.
 	void load(std::string const &filename,
-		std::function< void(Scene &, Transform *, std::string const &) > const &on_object = nullptr
+		std::function< void(Scene &, Transform *, std::string const *) > const &on_object = nullptr
 	);
 	void load(std::vector<std::string const> const& filenames,
-		std::function< void(Scene &, Transform *, std::string const &) > const &on_object = nullptr
+		std::function< void(Scene &, Transform *, std::string const *) > const &on_object = nullptr
 	);
 };
