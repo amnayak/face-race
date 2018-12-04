@@ -502,13 +502,10 @@ UIElement *GameMode::create_shapekey_deformer(
 
 			glm::mat4 w2m = world2mesh();
 			glm::mat4 camera_l2w = camera->transform->make_local_to_world();
-			//glm::mat4 camera_w2l = camera->transform->make_world_to_local();
 
 			glm::vec4 cam4 = w2m * camera_l2w * glm::vec4(0.f, 0.f, 0.f, 1.f);
 			cam4 /= cam4.w;
 			glm::vec3 cam3 = glm::vec3(cam4);
-			//glm::vec4 cur_cam = camera_w2l * m2w * glm::vec4(cur, 1.f);
-			//float dist = glm::length(cur - cam3) / fabs(cur_cam.z);
 
 			glm::vec2 const mm = m * 2.f - 1.f;
 			glm::vec4 const oray = glm::vec4(camera->generate_ray(mm), 0.f);
@@ -547,9 +544,15 @@ UIElement *GameMode::create_shapekey_deformer(
 					// Instead of subtracting the projection directly like normal gram-schmidt,
 					// we reproject the current point onto the camera ray to find the closest point
 					// on the ray.  We do this because we don't actually want the target vertex to
-					// move to the originally-calculated target; we instead want the target vertex
+					// move to any previously-calculated target pos; we instead want the target vertex
 					// to move to the camera ray.  The closest point on the camera ray changes as
 					// gram-schmidt proceeds, so we need to readjust.
+					// 
+					// First, we find the closest point on the shape key vector (ref2key) to the camera
+					// ray, clamping to the shapekey's range of movement.  Then we project this point back 
+					// onto the camera ray to avoid biasing to irrelevant values (ex, an eyebrow deformer
+					// pulling the mouth to 1.0 weight because the target point happens to be on the mouth
+					// key's ray).
 					float d_ref2key = glm::sqrt(d2_ref2key);
 					glm::vec3 target = soft_ray_isect(cur_proj, ref2key / d_ref2key, cam3, ray, d_ref2key);
 					glm::vec3 r = target - cam3;
