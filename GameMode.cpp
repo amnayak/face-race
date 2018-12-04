@@ -748,6 +748,10 @@ UIElement *GameMode::create_shapekey_deformer(
 	return ret;
 }
 
+const size_t num_deformers = 5;
+static std::array<std::vector<float>, num_deformers> deformer_weights;
+static std::array<size_t, num_deformers> reference_vertices;
+
 GameMode::GameMode(glm::uvec2 const& window_size) {
 	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
 
@@ -774,11 +778,11 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 		ui_elements[x]->name = "debug_slider";
 	}
 
-	const size_t num_deformers = 5;
-	std::array<size_t, num_deformers> reference_vertices = {
+	reference_vertices = {
 		40, 250, 3565, 6277, 2932
 	};
-	static std::array<std::vector<float>, num_deformers> deformer_weights;
+
+	
 	for(int x = 0; x < num_deformers; ++x) {
 		deformer_weights[x].resize(weights.size());
 		for(int y = 0; y < weights.size(); ++y)
@@ -787,12 +791,12 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 
 	for(int x = 0; x < num_deformers; ++x) {
 		UIElement *deformer = create_shapekey_deformer(20, face, reference_vertices[x], 
-			[this, x, reference_vertices](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
+			[this, x](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
 				deformer_weights[x] = ws;
 				for(int i = 0; i < weights.size(); ++i) {
 					weights[i] = 0;
 					for(int j = 0; j < num_deformers; ++j) {
-						if(reference_vertices[j] == 40 && face->key_frames[i].name.find("cheek_") == 0)
+						if(::reference_vertices[j] == 40 && face->key_frames[i].name.find("cheek_") == 0)
 							continue;
 
 						weights[i] += deformer_weights[j][i];
@@ -940,6 +944,23 @@ void GameMode::update(float elapsed) {
 	face->recalculate_mesh_data(weights);
 
 	current_expression = get_closest_weight(weights, face);
+
+	
+	for(int i = 0; i < weights.size(); ++i) {
+		for(int y = 0; y < deformer_weights.size(); ++y) {
+			deformer_weights[y][i] -= elapsed * 0.15f;
+			deformer_weights[y][i] = std::max(deformer_weights[y][i], 0.f);
+		}
+
+		weights[i] = 0;
+		for(int j = 0; j < deformer_weights.size(); ++j) {
+			if(reference_vertices[j] == 40 && face->key_frames[i].name.find("cheek_") == 0)
+				continue;
+
+			weights[i] += deformer_weights[j][i];
+		}
+		weights[i] = std::min(1.f, weights[i]);
+	}
 
     //TODO
     /** state logic **/

@@ -61,7 +61,6 @@ public:
     	VrtAnchor vrt = Top);
 
 	static UIElement *ui_element_focused;
-
 protected:
 	std::function<void(float)> onUpdate;
 	glm::uvec2 prev_window_size = glm::uvec2(0,0);
