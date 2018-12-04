@@ -61,6 +61,7 @@ struct GameMode : public Mode {
 	Scene::Object *cube = nullptr;
 	std::vector<UIElement *> ui_elements;
 
+	std::string middle_text;
 	bool debug_mode_enabled = false;
 	bool menu = true;
 };

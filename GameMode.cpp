@@ -61,6 +61,32 @@ uint32_t posedge_clock = 1;
 uint32_t state = WAIT_FOR_INPUT;
 uint32_t game_state = MENU;
 
+std::string happy_strs[] = {
+	"This is the best first date I've had in a while, thanks for being you",
+	"You're a really good listener, I appreciate that in a guy.",
+	"I really enjoy Christmas time... The lights, the snow, the music. It just makes me feel happy",
+	"I love your hair, where do you get it cut?"
+};
+
+std::string sad_strs[] = {
+	"I love dogs. I just really miss my childhood dog. He was always so happy, no matter what",
+	"I haven't slept well in weeks. My studies are really starting to get to me.",
+	"Do you have seasonal depression? Sometimes I think that I might. The lack of sunlight really gets to me.",
+};
+std::string conf_strs[] = {
+	"How would you implement image based lighting? What? Do you not usually talk about computer graphics on the first date?",
+"Would you rather eat ice cream with a fork or a knife?",
+"I like Fortnite. Wait-what do you mean you don't play Fortnite?"
+};
+std::string supr_strs[] = {
+	"I just choked on my asparagus, oh my goodness.",
+	"Wait a minute, you went to the graphics conference last year? No way, so did I!",
+	"I never tip my servers 15 percent. In my opinion, the restaurants should pay them more and not make it my responsibility.",
+	"You know what, I'll take the check. I like to switch things up sometimes!"
+};
+
+
+
 static MeshBuffer *suzanne_mesh;
 // Key: name of mesh
 // Value: index into meshes / meshes_for_***_program
@@ -645,7 +671,12 @@ UIElement *GameMode::create_shapekey_deformer(
 }
 
 GameMode::GameMode(glm::uvec2 const& window_size) {
+	srand(time(0));
 	face = new ShapeKeyMesh("face.keys", suzanne_mesh); //TODO remember to destroy
+	
+	//CHANGE middle_text WHEN WE CHANGE GAME STATES
+	middle_text = happy_strs[rand()%3];
+	// ****
 
 	SDL_Event fake;
 	fake.type = SDL_WINDOWEVENT_RESIZED;
@@ -1124,7 +1155,6 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 	}
 
 	if(game_state != MENU) {
-		std::string middle_text = "This is a test of the quote system.  Lorem ipsum dolor etc etc i dont know it should wrap";
 		glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
 		font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
 	}
