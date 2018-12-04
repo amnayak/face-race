@@ -370,6 +370,7 @@ void GameMode::update(float elapsed) {
             //TODO: stuff
             //1. display that it's game over?
             game_status = "GAME OVER";
+            goal_text = "FACE RACE ;)";
 						std::cout << "game over" << std::endl;
 						std::cout << dp.player_points << " points" << std::endl;
         } break;
