@@ -1,6 +1,9 @@
 #include "Scene.hpp"
 #include "read_chunk.hpp"
 
+#include "gl_errors.hpp"
+
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -113,6 +116,22 @@ glm::mat4 Scene::Camera::make_projection() const {
 	return glm::infinitePerspective( fovy, aspect, near );
 }
 
+glm::vec3 Scene::Camera::generate_ray(const glm::vec2 &ss) const {
+	float y = ss.y * glm::tan(fovy / 2.f);
+	float x = ss.x * glm::tan(fovy / 2.f * aspect);
+	float dist = glm::sqrt(1.f + x*x + y*y);
+
+	return glm::vec3(x, y, -1.f) / dist;
+}
+
+glm::vec2 Scene::Camera::world_to_clip(const glm::vec3 &ws) const {
+	glm::mat4 world_to_camera = transform->make_world_to_local();
+	glm::mat4 w2c_mat = make_projection() * world_to_camera;
+	glm::vec4 clip = w2c_mat * glm::vec4(ws, 1);
+	clip /= clip.w;
+	return glm::vec2(clip.x, clip.y);
+}
+
 //---------------------------
 
 //templated helper functions to avoid having to write the same new/delete code three times:
@@ -200,8 +219,8 @@ void Scene::draw(Scene::Lamp const *lamp, Object::ProgramType program_type) cons
 void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_type) const {
 	assert(program_type < Object::ProgramTypes);
 
-	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
 
+	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
 		//don't draw if no program of this type attached to object:
 		if (object->programs[program_type].program == 0) continue;
 
@@ -228,21 +247,50 @@ void Scene::draw(glm::mat4 const &world_to_clip, Object::ProgramType program_typ
 		if (info.itmv_mat3 != -1U) {
 			glUniformMatrix3fv(info.itmv_mat3, 1, GL_FALSE, glm::value_ptr(itmv));
 		}
+		if (info.wtcl_mat4 != -1U) {
+			glUniformMatrix4fv(info.wtcl_mat4, 1, GL_FALSE, glm::value_ptr(world_to_clip));
+		}
+
+		GL_ERRORS();
 
 		if (info.set_uniforms) info.set_uniforms();
+
+		GL_ERRORS();
 
 		//set up program textures:
 		for (uint32_t i = 0; i < Object::ProgramInfo::TextureCount; ++i) {
 			if (info.textures[i] != 0) {
+				GL_ERRORS();
 				glActiveTexture(GL_TEXTURE0 + i);
-				glBindTexture(GL_TEXTURE_2D, info.textures[i]);
+				GL_ERRORS();
+				glBindTexture(info.texture_type[i], info.textures[i]);
+				GL_ERRORS();
 			}
 		}
 
-		glBindVertexArray(info.vao);
+		if(info.vao != 0) {
+			GL_ERRORS();
 
-		//draw the object:
-		glDrawArrays(GL_TRIANGLES, info.start, info.count);
+			glBindVertexArray(info.vao);
+
+			GL_ERRORS();
+
+			GLboolean dm;
+			glGetBooleanv(GL_DEPTH_WRITEMASK, &dm);
+			glDepthMask((GLboolean)info.zwrite);
+
+			GL_ERRORS();
+
+			//draw the object:
+			glDrawArrays(GL_TRIANGLES, info.start, info.count);
+
+			GL_ERRORS();
+
+			glDepthMask(dm);
+
+			GL_ERRORS();
+		}
+		
 	}
 
 	//unbind any still bound textures and go back to active texture unit zero:
@@ -266,8 +314,15 @@ Scene::~Scene() {
 	}
 }
 
+void Scene::load(std::vector<std::string const> const& filenames,
+	std::function< void(Scene &, Transform *, std::string const *) > const &on_object) {
+	for(std::string const &cur : filenames) {
+		load(cur, on_object);
+	}
+}
+
 void Scene::load(std::string const &filename,
-	std::function< void(Scene &, Transform *, std::string const &) > const &on_object) {
+	std::function< void(Scene &, Transform *, std::string const *) > const &on_object) {
 
 	std::ifstream file(filename, std::ios::binary);
 
@@ -317,9 +372,18 @@ void Scene::load(std::string const &filename,
 	std::vector< LightEntry > lamps;
 	read_chunk(file, "lmp0", &lamps);
 
+	struct EmptyEntry {
+		uint32_t transform;
+	};
+	static_assert(sizeof(EmptyEntry) == 4, "EmptyEntry is packed.");
+	std::vector< EmptyEntry > empties;
+	read_chunk(file, "emp0", &empties);
+
 	if (file.peek() != EOF) {
 		std::cerr << "WARNING: trailing data in scene file '" << filename << "'" << std::endl;
 	}
+
+
 
 	//--------------------------------
 	//Now that file is loaded, create transforms for hierarchy entries:
@@ -360,9 +424,19 @@ void Scene::load(std::string const &filename,
 		std::string name = std::string(names.begin() + m.name_begin, names.begin() + m.name_end);
 
 		if (on_object) {
-			on_object(*this, hierarchy_transforms[m.transform], name);
+			on_object(*this, hierarchy_transforms[m.transform], &name);
 		}
 
+	}
+
+	for (auto const &e : empties) {
+		if (e.transform >= hierarchy_transforms.size()) {
+			throw std::runtime_error("scene file '" + filename + "' contains empty entry with invalid transform index (" + std::to_string(e.transform) + ")");
+		}
+
+		if (on_object) {
+			on_object(*this, hierarchy_transforms[e.transform], nullptr);
+		}
 	}
 
 	for (auto const &c : cameras) {

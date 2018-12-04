@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <sstream>
 
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
 	try {
@@ -119,7 +120,7 @@ int main(int argc, char **argv) {
 
 	//------------ create game mode + make current --------------
 
-	Mode::set_current(std::make_shared< GameMode >(/*client*/));
+	Mode::set_current(std::make_shared< GameMode >(glm::uvec2(640, 400)/*client*/));
 
 	//------------ main loop ------------
 

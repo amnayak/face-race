@@ -83,11 +83,16 @@ struct Scene {
 			GLuint mvp_mat4 = -1U; //uniform index for object-to-clip matrix (mat4)
 			GLuint mv_mat4x3 = -1U; //uniform index for model-to-lighting-space matrix (mat4x3)
 			GLuint itmv_mat3 = -1U; //uniform index for normal-to-lighting-space matrix (mat3)
+			GLuint wtcl_mat4 = -1U; //uniform index for world-to-clip-space matrix (mat4)
 			std::function< void() > set_uniforms; //(optional) function to set additional uniforms
 
 			//textures:
 			enum : uint32_t { TextureCount = 4 };
 			GLuint textures[TextureCount] = {0,0,0,0}; //textures to bind
+			GLuint texture_type[TextureCount] = {GL_TEXTURE_2D, GL_TEXTURE_2D, GL_TEXTURE_2D, GL_TEXTURE_2D};
+
+			//drawing parameters:
+			bool zwrite = true;
 		} programs[ProgramTypes];
 
 		//used by Scene to manage allocation:
@@ -142,6 +147,9 @@ struct Scene {
 		float near = 0.01f; //near plane
 		//computed from the above:
 		glm::mat4 make_projection() const;
+
+		glm::vec3 generate_ray(glm::vec2 const& ss) const;
+		glm::vec2 world_to_clip(glm::vec3 const& ws) const;
 
 		//used by Scene to manage allocation:
 		Camera **alloc_prev_next = nullptr;
@@ -198,6 +206,9 @@ struct Scene {
 	//add transforms/objects/cameras from a scene file:
 	// the 'on_object' callback gives you a chance to look up a mesh by name and make an object.
 	void load(std::string const &filename,
-		std::function< void(Scene &, Transform *, std::string const &) > const &on_object = nullptr
+		std::function< void(Scene &, Transform *, std::string const *) > const &on_object = nullptr
+	);
+	void load(std::vector<std::string const> const& filenames,
+		std::function< void(Scene &, Transform *, std::string const *) > const &on_object = nullptr
 	);
 };

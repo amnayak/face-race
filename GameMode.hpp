@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Mode.hpp"
-#include "Face.hpp"
+#include "ShapeKeyMesh.hpp"
+#include "UIElement.hpp"
 
 #include "MeshBuffer.hpp"
 #include "GL.hpp"
@@ -15,7 +16,7 @@
 // The 'GameMode' mode is the main gameplay mode:
 
 struct GameMode : public Mode {
-	GameMode();
+	GameMode(glm::uvec2 const& window_size);
 	virtual ~GameMode();
 
 	//handle_event is called when new mouse or keyboard events are received:
@@ -29,8 +30,40 @@ struct GameMode : public Mode {
 	//draw is called after update:
 	virtual void draw(glm::uvec2 const &drawable_size) override;
 
+	virtual void change_game_state();
+
+	UIElement *create_shapekey_deformer(
+		float size_scr,
+		ShapeKeyMesh *mesh,
+		uint32_t vertex,
+		std::function<void(uint32_t/*vertex*/, glm::vec3/*pos*/, std::vector<float>/*weights*/)> value_changed,
+		std::function<glm::mat4()> mesh2world, std::function<glm::mat4()> world2mesh);
+
+	UIElement *create_prompt(
+		glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name);
+
+	UIElement *create_button(
+		glm::vec2 loc,
+		glm::vec2 size,
+		GLuint tex, 
+		std::string name);
+
 	float camera_spin = 0.0f;
 	float spot_spin = 0.0f;
 
-	Face *f;
+	ShapeKeyMesh *face;
+	std::vector<float> weights;
+
+	glm::uvec2 window_size;
+	glm::uvec2 cur_mouse_pos;
+
+	Scene::Object *cube = nullptr;
+	std::vector<UIElement *> ui_elements;
+
+	std::string middle_text;
+	bool debug_mode_enabled = false;
+	bool menu = true;
 };

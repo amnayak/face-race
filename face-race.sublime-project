@@ -1,45 +1,61 @@
 {
+	"build_systems":
+	[
+		{
+			"cmd":
+			[
+				"jam -d x"
+			],
+			"name": "face-race",
+			"selector": "source",
+			"shell": true,
+			"variants":
+			[
+				{
+					"cmd":
+					[
+						"./main"
+					],
+					"name": "Run",
+					"working_dir": "$project_path/dist"
+				},
+				{
+					"cmd":
+					[
+						"jam clean"
+					],
+					"name": "Clean",
+					"working_dir": "$project_path"
+				},
+				{
+					"cmd": "make",
+					"name": "Regenerate assets",
+					"working_dir": "$project_path/meshes"
+				},
+				{
+					"cmd": "make",
+					"name": "Make shaders",
+					"working_dir": "$project_path/shaders"
+				},
+				{
+					"cmd": "make",
+					"name": "Make fonts",
+					"working_dir": "$project_path/fonts"
+				}
+			],
+			"working_dir": "$project_path"
+		},
+		{
+			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+			"name": "Anaconda Python Builder",
+			"selector": "source.python",
+			"shell_cmd": "\"python\" -u \"$file\""
+		}
+	],
 	"folders":
 	[
 		{
 			"path": "."
 		}
-	],
-	"build_systems":
-    [
-        {
-            "name": "face-race",
-            "cmd": ["jam"],
-            "working_dir": "$project_path",
-            "selector": "source.c++",
-            "shell": true,
-            "variants": [
-                {
-                    "name": "Run",
-                    "working_dir": "$project_path/dist",
-                    "cmd": ["./main"]
-                },
-            	{
-                    "name": "Clean",
-                    "working_dir": "$project_path",
-                    "cmd": ["jam clean"]
-                },
-                {
-                	"name": "Regenerate assets",
-                	"working_dir": "$project_path/meshes",
-                	"cmd": "make"
-                },
-                {
-                    "name": "Make shaders",
-                    "working_dir": "$project_path/shaders",
-                    "cmd": "make"
-                },
-                {
-                    "name": "Make fonts",
-                    "working_dir": "$project_path/fonts",
-                    "cmd": "make"
-                }
-            ]
-        }
-    ]
+	]
 }

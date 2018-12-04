@@ -296,6 +296,21 @@ float Font::draw_ascii_char(unsigned short c, glm::vec2 pos, float size) {
 	return (float)cur->xadvance * scale / screen_dim.x;
 }
 
+float Font::char_width(unsigned short c, float size) {
+	char_data *cur = all_chars[c];
+
+	if(!cur) {
+		// Treat this character as a space
+		// Using 0.25em for space size
+		return (.25f * (size == 0 ? this->size : size)) / screen_dim.x;
+	}
+
+	size = size == 0 ? this->size : size;
+	float scale = size / this->size;
+
+	return (float)cur->xadvance * scale / screen_dim.x;
+}
+
 void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, float width) {
 	glm::vec2 pos = og_pos;
 	float pos_in_line = 0;
@@ -304,30 +319,32 @@ void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, flo
 	size = size == 0 ? this->size : size;
 	float scale = size / this->size;
 
-	static bool printed = false;
+	static bool printed = true;//false;
+	debugging_print = false;
 
 	// TODO: Overflow text based on word, not by char
 	for(; *text != 0; ++text) {
 		char_data *cur = all_chars[*text];
 		float adv = 0;
-		if(cur) {
-			adv = cur->xadvance * scale / screen_dim.x;
-		}
-		if(width && pos_in_line + adv > width) {
+		if(cur && !(*text == ' ' && pos_in_line == 0))
+			adv = char_width(*text, size);
+
+		draw_ascii_char(*text, pos, size);
+
+		pos_in_line += adv;
+		pos.x += adv;
+		if(*text == '\n' || (width && pos_in_line + adv > width && *text == ' ')) {
 			pos.x = og_pos.x;
 			pos.y -= (float)render_info.line_height * scale / screen_dim.y;
 			pos_in_line = 0;
 		}
-		pos_in_line += adv;
 
-		float real_adv = draw_ascii_char(*text, pos, size);
-		pos.x += real_adv;
-		if(!cur) {
-			pos_in_line += real_adv;
+		if(prev && pos_in_line > 0) {
+			float k = (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] * scale / screen_dim.x;
+			adv += k;
+			pos.x += k;
 		}
 
-		if(prev)
-			pos.x += (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] / screen_dim.x;
 		if(!printed && *text != ' ' && prev)
 			std::cout << "   kerning w/ " << prev << ": " << kerning[id_pair(prev, *text)] << std::endl;
 		prev = *text;
@@ -336,4 +353,33 @@ void Font::draw_ascii_string(const char *text, glm::vec2 og_pos, float size, flo
 	printed = true;
 
 	debugging_print = false;
+}
+
+glm::vec2 Font::string_dims(const char *text, float size, float width) {
+	size = size == 0 ? this->size : size;
+	float scale = size / this->size;
+
+	glm::vec2 ret(0.f, 0.f);
+	float pos_in_line = 0;
+	char prev = 0;
+
+	for(; *text != 0; ++text) {
+		char_data *cur = all_chars[*text];
+		float adv = 0;
+		if(cur)
+			adv = char_width(*text, size);
+		if(prev)
+			adv += (float)kerning[{(unsigned short)prev, (unsigned short)(*text)}] * scale / screen_dim.x;
+		if(*text == '\n' || (width && pos_in_line + adv > width && *text == ' ')) {
+			pos_in_line = 0;
+			ret.y += (float)render_info.line_height * scale / screen_dim.y;
+		}
+		pos_in_line += adv;
+
+		ret.x = std::max(ret.x, pos_in_line);
+		prev = *text;
+	}
+
+	return ret;
+
 }

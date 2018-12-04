@@ -1,5 +1,6 @@
 #include "MeshBuffer.hpp"
 #include "read_chunk.hpp"
+#include "gl_errors.hpp"
 
 #include <glm/glm.hpp>
 
@@ -11,7 +12,7 @@
 #include <set>
 #include <cstddef>
 
-MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
+MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) : draw_mode(draw_mode) {
 	glGenBuffers(1, &vbo);
 
 	std::ifstream file(filename, std::ios::binary);
@@ -19,96 +20,80 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	GLuint total = 0;
 	//read + upload data chunk:
 	if (filename.size() >= 2 && filename.substr(filename.size()-2) == ".p") {
-		struct Vertex {
-			glm::vec3 Position;
-		};
-		static_assert(sizeof(Vertex) == 3*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PVertex Vertex;
 		read_chunk(file, "p...", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), draw_mode);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
+
+		format = P;
 
 		//store attrib locations:
-		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
+		Position = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Position));
 
 	} else if (filename.size() >= 3 && filename.substr(filename.size()-3) == ".pn") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNVertex Vertex;
 		read_chunk(file, "pn..", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
+
+		format = PN;
 
 		//store attrib locations:
-		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
-		Normal = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Normal));
+		Position = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Position));
+		Normal = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Normal));
 
 	} else if (filename.size() >= 4 && filename.substr(filename.size()-4) == ".pnc") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-			glm::u8vec4 Color;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4+4*1, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNCVertex Vertex;
 		read_chunk(file, "pnc.", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
+
+		format = PNC;
 
 		//store attrib locations:
-		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
-		Normal = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Normal));
-		Color = Attrib(4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), offsetof(Vertex, Color));
+		Position = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Position));
+		Normal = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Normal));
+		Color = Attrib(4, GL_UNSIGNED_BYTE, Attrib::AsFloatFromFixedPoint, sizeof(Vertex), offsetof(Vertex, Color));
 
 	} else if (filename.size() >= 5 && filename.substr(filename.size()-5) == ".pnct") {
-		struct Vertex {
-			glm::vec3 Position;
-			glm::vec3 Normal;
-			glm::u8vec4 Color;
-			glm::vec2 TexCoord;
-		};
-		static_assert(sizeof(Vertex) == 3*4+3*4+4*1+2*4, "Vertex is packed.");
-
-		std::vector< Vertex > data;
+		typedef PNCTVertex Vertex;
 		read_chunk(file, "pnct", &data);
 
 		//upload data:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(Vertex), data.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), draw_mode);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		total = GLuint(data.size()); //store total for later checks on index
+		total = GLuint(data.size() / sizeof(Vertex)); //store total for later checks on index
+
+		format = PNCT;
 
 		//store attrib locations:
-		Position = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Position));
-		Normal = Attrib(3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, Normal));
-		Color = Attrib(4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), offsetof(Vertex, Color));
-		TexCoord = Attrib(2, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, TexCoord));
+		Position = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Position));
+		Normal = Attrib(3, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, Normal));
+		Color = Attrib(4, GL_UNSIGNED_BYTE, Attrib::AsFloatFromFixedPoint, sizeof(Vertex), offsetof(Vertex, Color));
+		TexCoord = Attrib(2, GL_FLOAT, Attrib::AsFloat, sizeof(Vertex), offsetof(Vertex, TexCoord));
 
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
 	}
+
+	vertex_data = &data;
 
 	std::vector< char > strings;
 	read_chunk(file, "str0", &strings);
@@ -156,12 +141,32 @@ MeshBuffer::MeshBuffer(std::string const &filename, GLenum draw_mode) {
 	*/
 }
 
+void MeshBuffer::update_vertex_data(std::vector<char> &ndata) {
+	if(ndata.size() != data.size())
+		throw std::runtime_error("Passed incorrect size (" + std::to_string(ndata.size()) + " instead of " + std::to_string(data.size()) + ") to update_vertex_data");
+
+	data = ndata; // copy
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, ndata.size(), ndata.data(), draw_mode);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 const MeshBuffer::Mesh &MeshBuffer::lookup(std::string const &name) const {
 	auto f = meshes.find(name);
 	if (f == meshes.end()) {
 		throw std::runtime_error("Looking up mesh '" + name + "' that doesn't exist.");
 	}
 	return f->second;
+}
+
+bool MeshBuffer::contains(const std::string &name) const {
+	for(const std::pair<const std::string, Mesh> &cur : meshes) {
+		if(cur.first == name) {
+		    return true;
+		}
+	}
+	return false;
 }
 
 GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
@@ -179,17 +184,23 @@ GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
 		if (location == -1) {
 			std::cerr << "WARNING: attribute '" << name << "' in mesh buffer isn't active in program." << std::endl;
 		} else {
-			glVertexAttribPointer(location, attrib.size, attrib.type, attrib.normalized, attrib.stride, (GLbyte *)0 + attrib.offset);
+			attrib.VertexAttribPointer(location);
+			// glVertexAttribPointer(location, attrib.size, attrib.type, attrib.interpretation, attrib.stride, (GLbyte *)0 + attrib.offset);
 			glEnableVertexAttribArray(location);
 			bound.insert(location);
 		}
 	};
-	bind_attribute("Position", Position);
-	bind_attribute("Normal", Normal);
-	bind_attribute("Color", Color);
-	bind_attribute("TexCoord", TexCoord);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	if(Position.size != 0)
+		bind_attribute("Position", Position);
+	if(Normal.size != 0)
+		bind_attribute("Normal", Normal);
+	if(Color.size != 0)
+		bind_attribute("Color", Color);
+	if(TexCoord.size != 0)
+		bind_attribute("TexCoord", TexCoord);
+	
 	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	//Check that all active attributes were bound:
 	GLint active = 0;
@@ -206,6 +217,8 @@ GLuint MeshBuffer::make_vao_for_program(GLuint program) const {
 			throw std::runtime_error("ERROR: active attribute '" + std::string(name) + "' in program is not bound.");
 		}
 	}
+
+	GL_ERRORS();
 
 	return vao;
 }

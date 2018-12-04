@@ -11,7 +11,11 @@ all : \
 	$(DIST)/arial2.png \
 	$(DIST)/times.fnt \
 	$(DIST)/times1.png \
-	$(DIST)/times2.png
+	$(DIST)/times2.png \
+	$(DIST)/noto_italic.fnt \
+	$(DIST)/noto_italic1.png \
+	$(DIST)/noto_italic2.png \
+	$(DIST)/noto_italic3.png
 
 $(DIST):
 	$(MKDIR_P) $(DIST)
