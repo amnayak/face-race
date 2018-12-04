@@ -81,6 +81,8 @@ CLIENT_NAMES =
   Face
 	draw_text
 	Sound
+	DialoguePlayer
+	Dialogue
 	Font
 	;
 

@@ -29,7 +29,7 @@ class DialoguePlayer {
     std::vector <float> curr_weights; //face weights used to judge user
 
     //inputs player choice
-    bool makeChoice(uint32_t c, std::vector <float> curr_weights);
+    bool makeChoice(uint32_t c);
 
     //set these to real values
     /**
@@ -46,10 +46,12 @@ class DialoguePlayer {
 
     //returns true if curr_weights matches goal_weights with a certain threshhold
     //updates player points
-    bool matchesGoalFace (std::vector <float> goal_weights);
+    bool matchesGoalFace ();
 
     bool gameOver = false;
 
     float threshold = 0.25f;
+
+    uint32_t NO_CHOICE = -1;
 
 };

@@ -1,7 +1,6 @@
 #include "DialoguePlayer.hpp"
 
 //static bool DEBUG = true;
-static uint32_t NO_CHOICE = -1;
 
 DialoguePlayer::DialoguePlayer (Dialogue d) {
     dialogue = d;
@@ -10,10 +9,6 @@ DialoguePlayer::DialoguePlayer (Dialogue d) {
     outstanding_choice = false;
 }
 
-//TODO change function to:
-//1) accrue points based on face challenge, choice challenge, or both
-//2) go to next line properly and not crash
-//3) set gameOver flag
 Dialogue::Line DialoguePlayer::playDialogue() {
     if (choice_index != NO_CHOICE && outstanding_choice) {
         line_number = dialogue.lines[line_number].choices[choice_index].goto_index;
@@ -28,7 +23,12 @@ Dialogue::Line DialoguePlayer::playDialogue() {
         choice_index = NO_CHOICE;
     }
 
-    assert (line_number >= 0);
+    //if you're at the last dialogue, signal gameOver
+    if (line_number == dialogue.lines.size() - 1) {
+      gameOver = true;
+    }
+
+    assert (line_number >= 0 && line_number < dialogue.lines.size());
     return dialogue.lines[line_number];
 }
 
@@ -40,7 +40,9 @@ bool DialoguePlayer::makeChoice(uint32_t c) {
     return false;
 }
 
-bool DialoguePlayer::matchesGoalFace (std::vector <float> goal_weights, std::vector <float> curr_weights) {
+bool DialoguePlayer::matchesGoalFace () {
+  std::vector <float> goal_weights = dialogue.lines[line_number].goal_face;
+
     for (int i = 0; i < goal_weights.size(); i++) {
         if (curr_weights[i] < goal_weights[i] + threshold && curr_weights[i] > goal_weights[i] - threshold) {
             //yay

@@ -36,15 +36,15 @@ void Dialogue::loadTestDialogue() {
     **/
     Line A;
     Line B;
-    outcomeA.text = "A";
-    outcomeA.goalFace = HAPPY;
-    outcomeA.facePoints = 50;
-    outcomeB.text = "B";
-    outcomeB.goalFace = SAD;
-    outcomeB.facePoints = 50;
+    A.text = "A";
+    A.goal_face = HAPPY;
+    A.face_points = 50;
+    B.text = "B";
+    B.goal_face = SAD;
+    B.face_points = 50;
 
-    lines.emplace_back(outcomeA);
-    lines.emplace_back(outcomeB);
+    lines.emplace_back(A);
+    lines.emplace_back(B);
 }
 
 Dialogue::~Dialogue() {

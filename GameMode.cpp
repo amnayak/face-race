@@ -14,6 +14,8 @@
 #include "texture_program.hpp"
 #include "depth_program.hpp"
 #include "Font.hpp"
+#include "DialoguePlayer.hpp"
+
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -28,19 +30,19 @@
 uint32_t SECONDS_PER_ROUND = 10;
 auto round_start_time = std::chrono::steady_clock::now();
 
-enum state {WAIT, CHALLENGE, GAME_OVER, FEEDBACK};
+enum state {WAIT, CHALLENGE, GAMEOVER, FEEDBACK};
 state current_state = WAIT;
 
 Dialogue d = Dialogue();
 DialoguePlayer dp = DialoguePlayer(d);
 
-string goal_text = "";
-string points = "0";
-string game_status = "";
+std::string goal_text = "";
+std::string points = "0";
+std::string game_status = "";
 
 bool game_start = false;
 
-int player_choice = DialoguePlayer::no_choice;
+int player_choice = -1; //TODO
 
 //current value of the face mesh
 std::vector <float> player_face; //TODO lol how do you get this value
@@ -267,13 +269,16 @@ uint32_t secondsElapsed() {
 }
 
 //updates round start time to now
-uint32_t updateRoundStartTime() {
+void updateRoundStartTime() {
     round_start_time = std::chrono::steady_clock::now();
 }
 
 //TODO capture user input to modify player_face, and player choice
 
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
+		if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_SPACE) {
+			game_start = true;
+		}
 	/**
 	//ignore any keys that are the result of automatic key repeat:
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
@@ -317,28 +322,36 @@ void GameMode::update(float elapsed) {
         case WAIT: {
             if (game_start) {
                 current_state = CHALLENGE;
-                //TODO init dp
-                updateRoundStateTime();
+                updateRoundStartTime();
+								std::cout << "starting game" << std::endl;
+								goal_text = dp.playDialogue().text;
             }
         } break;
         case CHALLENGE: {
             if (secondsElapsed() >= SECONDS_PER_ROUND) {
                 //TODO: stuff
-                //1) record player inputs
+                // record player inputs
+								dp.curr_weights = player_face;
+								std::cout << "round over" << std::endl;
                 current_state = FEEDBACK;
-            }
-
-            //TODO: stuff
-            // update a UI elem or something to indicate time
+            } else {
+							//TODO: stuff
+							// update a UI elem or something to indicate time
+							std::cout << goal_text << std::endl;
+						}
         } break;
         case FEEDBACK: {
             //TODO: stuff
             //update dialog player, get back points
             //update and display points?
+						std::cout << dp.matchesGoalFace() << std::endl;
+						std::cout << dp.player_points << " points" << std::endl;
 
             if (!dp.gameOver) {
-                updateRoundStateTime();
+                updateRoundStartTime();
                 current_state = CHALLENGE;
+								std::cout << "new challenge" << std::endl;
+								goal_text = dp.playDialogue().text;
             } else {
                 current_state = GAMEOVER;
             }
@@ -346,6 +359,8 @@ void GameMode::update(float elapsed) {
         case GAMEOVER: {
             //TODO: stuff
             //1. display that it's game over?
+						std::cout << "game over" << std::endl;
+						std::cout << dp.player_points << " points" << std::endl;
         } break;
     }
     camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
