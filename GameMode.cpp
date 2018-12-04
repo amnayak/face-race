@@ -26,6 +26,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -466,6 +467,96 @@ UIElement *GameMode::create_button(glm::vec2 loc,
 	return ret;
 }
 
+static size_t get_closest_weight(std::vector<float> weights, ShapeKeyMesh *const face) {
+	const std::vector<std::string> wnames = {
+		"brow_up_L",
+		"brow_up_R",
+		"brow_down_L",
+		"brow_down_R",
+		"brow_out_L",
+		"brow_out_R",
+		"brow_in_L",
+		"brow_in_R",
+		"cheek_up_L",
+		"cheek_up_R",
+		"cheek_out_L",
+		"cheek_out_R",
+		"cheek_down_L",
+		"cheek_down_R",
+		"cheek_in_L",
+		"cheek_in_R",
+		"chin_down",
+		"chin_up",
+		"chin_right",
+		"chin_left"
+	};
+	std::vector<float> happy = {
+		0.4f,0.4f,0.f,0.f,0.2f,0.2f,0.f,0.f,0.8f,0.8f,0.f,0.f,0.f,0.f,0.f,0.f,0.4f,0.f,0.f,0.f
+	};
+	std::vector<float> sad = {
+		0.f,0.f,0.8f,0.8f,0.f,0.f,0.4f,0.4f,0.f,0.f,0.f,0.f,0.8f,0.8f,0.f,0.f,0.f,0.f,0.f,0.f
+	};
+	std::vector<float> confused_L = {
+		0.7f,0.f,0.f,0.5f,0.f,0.f,0.4f,0.2f,0.f,0.f,0.f,0.f,0.5f,0.5f,0.f,0.f,0.4f,0.f,0.f,0.f
+	};
+	std::vector<float> confused_R = {
+		0.5f,0.f,0.f,0.7f,0.f,0.f,0.4f,0.2f,0.f,0.f,0.f,0.f,0.5f,0.5f,0.f,0.f,0.4f,0.f,0.f,0.f
+	};
+	std::vector<float> surprised = {
+		0.8f,0.8f,0.f,0.f,0.4f,0.4f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.8f,0.8f,0.5f,0.f,0.f,0.f
+	};
+	if(weights.size() != happy.size()) {
+		std::stringstream errs;
+		errs << "wrong weights size given, got " << weights.size() << " expected " << happy.size();
+		throw std::runtime_error(errs.str());
+	}
+
+	float whappy = 0, wsad = 0, wconfusedL = 0, wconfusedR = 0, wsurprised = 0, wweights = 0;
+	for(int x = 0; x < weights.size(); ++x) {
+		whappy += happy[x];
+		wsad += sad[x];
+		wconfusedL += confused_L[x];
+		wconfusedR += confused_R[x];
+		wsurprised += surprised[x];
+		wweights += weights[x];
+	}
+
+	//normalize
+	for(int x = 0; x < weights.size(); ++x) {
+		happy[x] /= whappy;
+		sad[x] /= wsad;
+		confused_L[x] /= wconfusedL;
+		confused_R[x] /= wconfusedR;
+		surprised[x] /= wsurprised;
+		if(wweights > 0.001f) weights[x] /= wweights;
+	}
+
+	whappy = wsad = wconfusedL = wconfusedR = wsurprised = 0.f;
+	for(int x = 0; x < weights.size(); ++x) {
+		size_t oidx = face->frame_map[wnames[x]].index;
+		whappy += happy[x] * weights[oidx];
+		wsad += sad[x] * weights[oidx];
+		wconfusedL += confused_L[x] * weights[oidx];
+		wconfusedR += confused_R[x] * weights[oidx];
+		wsurprised += surprised[x] * weights[oidx];
+	}
+
+	if(whappy < 0.4f && wsad < 0.4f && wconfusedL < 0.4f && wconfusedR < 0.4f && wsurprised < 0.4f)
+		return NEUTRAL;
+
+	if(whappy >= wsad && whappy >= wconfusedL && whappy >= wconfusedR && whappy >= wsurprised)
+		return HAPPY;
+	else if(wsad >= whappy && wsad >= wconfusedL && wsad >= wconfusedR && wsad >= wsurprised)
+		return SAD;
+	else if((wconfusedL >= whappy && wconfusedL >= wsad && wconfusedL >= wconfusedR && wconfusedL >= wsurprised) ||
+			(wconfusedR >= whappy && wconfusedR >= wsad && wconfusedR >= wconfusedL && wconfusedR >= wsurprised))
+		return CONFUSED;
+	else if(wsurprised >= whappy && wsurprised >= wconfusedL && wsurprised >= wconfusedR && wsurprised >= wsad)
+		return SURPRISE;
+
+	return NEUTRAL;
+}
+
 /* Intersects the rays A and B, and returns the point of intersection.
  * If A and B do not intersect, returns the closest point on A to B.
  * max_distance is the maximum distance from Aogn, along Adir, that
@@ -656,11 +747,12 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 	fake.type = SDL_WINDOWEVENT_RESIZED;
 
 	weights.resize(face->key_frames.size());
+	float itl_ypos = window_size.y / 2.f + 25.f * weights.size() / 2.f;
 	for(int x = 0; x < weights.size(); ++x) {
 		weights[x] = 0.f;
 		ui_elements.push_back(
 			UIElement::create_slider(
-				glm::vec2(200.f,window_size.y-10-x*25), 
+				glm::vec2(200.f,itl_ypos - x*25), 
 				100, 10, 20, 
 				[x, this](float n){weights[x]=n;}, 
 				[x, this](){return weights[x];},
@@ -674,9 +766,9 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 		ui_elements[x]->name = "debug_slider";
 	}
 
-	const size_t num_deformers = 3;
+	const size_t num_deformers = 5;
 	std::array<size_t, num_deformers> reference_vertices = {
-		1300, 216, 250
+		40, 250, 3565, 6277, 2932
 	};
 	static std::array<std::vector<float>, num_deformers> deformer_weights;
 	for(int x = 0; x < num_deformers; ++x) {
@@ -687,13 +779,17 @@ GameMode::GameMode(glm::uvec2 const& window_size) {
 
 	for(int x = 0; x < num_deformers; ++x) {
 		UIElement *deformer = create_shapekey_deformer(20, face, reference_vertices[x], 
-			[this, x](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
+			[this, x, reference_vertices](uint32_t vert, glm::vec3 pos, std::vector<float> ws){
 				deformer_weights[x] = ws;
 				for(int i = 0; i < weights.size(); ++i) {
 					weights[i] = 0;
 					for(int j = 0; j < num_deformers; ++j) {
+						if(reference_vertices[j] == 40 && face->key_frames[i].name.find("cheek_") == 0)
+							continue;
+
 						weights[i] += deformer_weights[j][i];
 					}
+					weights[i] = std::min(1.f, weights[i]);
 				}
 			},
 			std::bind(&Scene::Transform::make_local_to_world, face_object->transform), 
@@ -807,6 +903,8 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	return false;
 }
 
+static size_t current_expression = NEUTRAL;
+
 void GameMode::update(float elapsed) {
 	//camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
@@ -832,6 +930,8 @@ void GameMode::update(float elapsed) {
 	face_object->transform->position.z = 1;
 	face_object->transform->scale = glm::vec3(0.5f,0.5f,0.5f);
 	face->recalculate_mesh_data(weights);
+
+	current_expression = get_closest_weight(weights, face);
 
     //TODO
     /** state logic **/
@@ -1072,6 +1172,8 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 		//make a matrix that acts as if the camera is at the origin:
 		glm::mat4 world_to_camera = camera->transform->make_world_to_local();
 		world_to_camera[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		glm::mat4 rotrr = glm::rotate(glm::mat4(1.f), -45.f, glm::vec3(0.f, 1.f, 0.f));
+		world_to_camera = rotrr * world_to_camera;
 		glm::mat4 world_to_clip = camera->make_projection() * world_to_camera;
 		glm::mat4 object_to_clip = world_to_clip;
 
@@ -1133,6 +1235,29 @@ void GameMode::draw(glm::uvec2 const &drawable_size) {
 		std::string middle_text = "This is a test of the quote system.  Lorem ipsum dolor etc etc i dont know it should wrap";
 		glm::vec2 size = font_noto_it->string_dims(middle_text.c_str(), 16, 0.8);
 		font_noto_it->draw_ascii_string(middle_text.c_str(), glm::vec2(.5f - size.x / 2.f, .2f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
+
+		if(debug_mode_enabled) {
+			std::string expression_text = "Expression: ";
+			switch(current_expression) {
+				case HAPPY:
+				expression_text += "HAPPY";
+				break;
+				case SAD:
+				expression_text += "SAD";
+				break;
+				case CONFUSED:
+				expression_text += "CONFUSED";
+				break;
+				case SURPRISE:
+				expression_text += "SURPRISED";
+				break;
+				default:
+				expression_text += "NEUTRAL";
+				break;
+			}
+			size = font_noto_it->string_dims(expression_text.c_str(), 16, 0.8);
+			font_noto_it->draw_ascii_string(expression_text.c_str(), glm::vec2(.5f - size.x / 2.f, .8f + size.y / 2.f - 8.f/window_size.y), 16, 0.8);
+		}
 	}
 
 	if(debug_mode_enabled) {
