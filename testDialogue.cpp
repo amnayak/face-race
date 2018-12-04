@@ -3,7 +3,7 @@
 #include "Dialogue.hpp"
 
 int main() {
-    std::cout << "Sup dawg";
+    std::cout << "++++++++++++++++++++++++";
     Dialogue d = Dialogue();
     DialoguePlayer dp = DialoguePlayer(d);
     std::cout << dp.playDialogue().text;

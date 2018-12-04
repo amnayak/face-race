@@ -22,6 +22,28 @@
 #include <map>
 #include <cstddef>
 #include <random>
+#include <chrono>
+
+//number of seconds in a round
+uint32_t SECONDS_PER_ROUND = 10;
+auto round_start_time = std::chrono::steady_clock::now();
+
+enum state {WAIT, CHALLENGE, GAME_OVER, FEEDBACK};
+state current_state = WAIT;
+
+Dialogue d = Dialogue();
+DialoguePlayer dp = DialoguePlayer(d);
+
+string goal_text = "";
+string points = "0";
+string game_status = "";
+
+bool game_start = false;
+
+int player_choice = DialoguePlayer::no_choice;
+
+//current value of the face mesh
+std::vector <float> player_face; //TODO lol how do you get this value
 
 Load< MeshBuffer > meshes(LoadTagDefault, [](){
 	return new MeshBuffer(data_path("vignette.pnct"), GL_STATIC_DRAW);
@@ -231,13 +253,28 @@ Load< Scene > scene(LoadTagDefault, [](){
 });
 
 GameMode::GameMode() {
-		f = new Face(); //TODO remember to destroy
+	f = new Face(); //TODO remember to destroy
 }
 
 GameMode::~GameMode() {
 }
 
+//returns seconds elapsed since round_start_time
+uint32_t secondsElapsed() {
+    //now
+    auto current_time = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::seconds>(current_time - round_start_time).count();
+}
+
+//updates round start time to now
+uint32_t updateRoundStartTime() {
+    round_start_time = std::chrono::steady_clock::now();
+}
+
+//TODO capture user input to modify player_face, and player choice
+
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
+	/**
 	//ignore any keys that are the result of automatic key repeat:
 	if (evt.type == SDL_KEYDOWN && SDL_SCANCODE_L) {
 		//TODO: decrease basis weight in a better way.. [multiple shape keys]
@@ -269,12 +306,49 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		}
 
 	}
+	**/
 
 	return false;
 }
 
 void GameMode::update(float elapsed) {
-	camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
+
+    switch (current_state) {
+        case WAIT: {
+            if (game_start) {
+                current_state = CHALLENGE;
+                //TODO init dp
+                updateRoundStateTime();
+            }
+        } break;
+        case CHALLENGE: {
+            if (secondsElapsed() >= SECONDS_PER_ROUND) {
+                //TODO: stuff
+                //1) record player inputs
+                current_state = FEEDBACK;
+            }
+
+            //TODO: stuff
+            // update a UI elem or something to indicate time
+        } break;
+        case FEEDBACK: {
+            //TODO: stuff
+            //update dialog player, get back points
+            //update and display points?
+
+            if (!dp.gameOver) {
+                updateRoundStateTime();
+                current_state = CHALLENGE;
+            } else {
+                current_state = GAMEOVER;
+            }
+        } break;
+        case GAMEOVER: {
+            //TODO: stuff
+            //1. display that it's game over?
+        } break;
+    }
+    camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
