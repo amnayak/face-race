@@ -967,8 +967,12 @@ void GameMode::update(float elapsed) {
 	//camera_parent_transform->rotation = glm::angleAxis(camera_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 	spot_parent_transform->rotation = glm::angleAxis(spot_spin, glm::vec3(0.0f, 0.0f, 1.0f));
 
-	static float timer = 0;
 	timer += elapsed;
+
+	if (timer >= 10.0f) {
+		timer = 0.0f;
+		change_game_state();
+	}
 	// std::cout << game_state << std::endl;
 	for(UIElement *cur : ui_elements) {
 		if (cur->name== "logo") cur->enabled = game_state == MENU;

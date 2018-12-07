@@ -66,4 +66,6 @@ struct GameMode : public Mode {
 	std::string middle_text;
 	bool debug_mode_enabled = false;
 	bool menu = true;
+
+	float timer = 0.0f;
 };
